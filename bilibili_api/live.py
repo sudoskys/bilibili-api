@@ -169,6 +169,9 @@ class LiveRoom:
         self.__ruid = resp["uid"]
         return resp
 
+    async def get_room_id(self):
+        return (await self.get_room_play_info())["room_id"]
+
     async def __get_ruid(self):
         """
         获取真实房间 ID，若有缓存则使用缓存
@@ -177,6 +180,9 @@ class LiveRoom:
             await self.get_room_play_info()
 
         return self.__ruid
+
+    async def get_ruid(self):
+        return await self.__get_ruid()
 
     async def get_chat_conf(self):
         """
@@ -198,7 +204,9 @@ class LiveRoom:
             api["method"], api["url"], params, credential=self.credential
         )
 
-    async def get_fan_model(self, page_num: int = 1, target_id: int = None, roomId: int = None):
+    async def get_fan_model(
+        self, page_num: int = 1, target_id: int = None, roomId: int = None
+    ):
         """
         获取自己的粉丝勋章信息
 
@@ -410,15 +418,18 @@ class LiveRoom:
         self.credential.raise_for_no_sessdata()
 
         api = API["operate"]["send_danmaku"]
+        room_id = (await self.get_room_play_info())["room_id"]
+
         data = {
             "mode": danmaku.mode,
             "msg": danmaku.text,
-            "roomid": self.room_display_id,
+            "roomid": room_id,
             "bubble": 0,
             "rnd": int(time.time()),
             "color": int(danmaku.color, 16),
             "fontsize": danmaku.font_size,
         }
+        print(data)
         return await request(
             api["method"], api["url"], data=data, credential=self.credential
         )

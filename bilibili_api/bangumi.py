@@ -42,7 +42,40 @@ class BangumiCommentOrder(Enum):
     CTIME = 1
 
 
+class BangumiType(Enum):
+    """
+    番剧类型
+
+    + BANGUMI: 番剧
+    + FT: 影视
+    + GUOCHUANG: 国创
+    """
+    BANGUMI = 1
+    FT = 3
+    GUOCHUANG = 4
+
+async def get_timeline(type_: BangumiType, before: int = 7, after: int = 0):
+    """
+    获取番剧时间线
+
+    Args:
+        type_(BangumiType): 番剧类型
+        before(int)       : 几天前开始(0~7), defaults to 7
+        after(int)        : 几天后结束(0~7), defaults to 0
+    """
+    api = API["info"]["timeline"]
+    params = {
+        "types": type_.value, 
+        "before": before, 
+        "after": after
+    }
+    return await request("GET", api["url"], params = params)
+
 class Bangumi:
+    """
+    番剧类
+    """
+
     def __init__(
         self,
         media_id: int = -1,
@@ -52,7 +85,6 @@ class Bangumi:
         credential: Credential = Credential(),
     ):
         """
-        番剧类相关
         Args:
             media_id: 番剧本身的 ID
             ssid: 每季度的 ID
@@ -267,11 +299,15 @@ async def set_follow(
 
 
 class Episode(Video):
+    """
+    番剧视频类（没错重构了）
+    """
+
     def __init__(self, epid: int, credential: Credential = None):
         """
-        番剧视频类（没错重构了）
-        epid: epid
-        credential: 凭据
+        Args:
+            epid(int)             : 番剧 epid
+            credential(Credential): 凭据
         """
         self.credential = credential
         credential = self.credential if self.credential else Credential()

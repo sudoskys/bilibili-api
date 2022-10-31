@@ -6,12 +6,14 @@ bilibili_api.utils.get_item
 
 from enum import Enum
 from .Credential import Credential
-from ..search import search_by_type
+from ..search import search_by_type, search_games
 from ..user import User
 from ..live import LiveRoom
 from ..article import Article
 from ..bangumi import Bangumi
 from ..video import Video
+from ..game import Game
+
 
 class GetItemObjectType(Enum):
     """
@@ -23,7 +25,9 @@ class GetItemObjectType(Enum):
     + ARTICLE : 专栏
     + USER : 用户
     + LIVEUSER : 直播间用户
+    + GAME: 游戏
     """
+
     VIDEO = "video"
     BANGUMI = "media_bangumi"
     FT = "media_ft"
@@ -31,8 +35,12 @@ class GetItemObjectType(Enum):
     ARTICLE = "article"
     USER = "bili_user"
     LIVEUSER = "live_user"
+    GAME = "game"
 
-async def get_item(name: str, obj_type: GetItemObjectType, credential: Credential = None):
+
+async def get_item(
+    name: str, obj_type: GetItemObjectType, credential: Credential = None
+):
     """
     通过名称及类型获取对应资源。
 
@@ -50,11 +58,14 @@ async def get_item(name: str, obj_type: GetItemObjectType, credential: Credentia
     """
     credential = credential if credential else Credential()
     try:
-        result = (await search_by_type(name, obj_type))["result"]
+        if obj_type != GetItemObjectType.GAME:
+            result = (await search_by_type(name, obj_type))["result"]
+        else:
+            result = await search_games(name)
         if obj_type == GetItemObjectType.USER:
-            return User(uid = result[0]["mid"])
+            return User(uid=result[0]["mid"])
         elif obj_type == GetItemObjectType.LIVEUSER:
-            return User(uid = result[0]["uid"])
+            return User(uid=result[0]["uid"])
         elif obj_type == GetItemObjectType.LIVE:
             return LiveRoom(result["live_room"][0]["roomid"])
         elif obj_type == GetItemObjectType.ARTICLE:
@@ -65,6 +76,8 @@ async def get_item(name: str, obj_type: GetItemObjectType, credential: Credentia
             return Bangumi(result[0]["media_id"])
         elif obj_type == GetItemObjectType.VIDEO:
             return Video(result[0]["bvid"])
+        elif obj_type == GetItemObjectType.GAME:
+            return Game(result[0]["game_base_id"])
         else:
             return result
     except Exception as e:

@@ -287,6 +287,10 @@ async def delete_schedule(draft_id: int, credential: Credential):
 
 
 class Dynamic:
+    """
+    动态类
+    """
+
     def __init__(self, dynamic_id: int, credential: Credential = None):
         """
         Args:

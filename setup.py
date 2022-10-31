@@ -8,7 +8,7 @@ with open("requirements.txt", "r", encoding="utf8") as f:
 
 setuptools.setup(
     name="bilibili-api-python",
-    version="13.0.0",
+    version="13.1.1",
     license="GPLv3+",
     author="MoyuScript, Nemo2011",
     description="哔哩哔哩的各种 API 调用便捷整合（视频、动态、直播等），另外附加一些常用的功能。",
@@ -18,7 +18,7 @@ setuptools.setup(
         "bilibili_api",
         "bilibili_api.utils",
         "bilibili_api.exceptions",
-        "bilibili_api.errors", 
+        "bilibili_api.errors",
         "bilibili_api._pyinstaller",
     ],
     keywords=["bilibili", "api", "spider"],
@@ -29,7 +29,9 @@ setuptools.setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
     ],
-    package_data={"": ["data/**/*.*", "requirements.txt", "data/*.*", "html/*.*", "css/*.*"]},
+    package_data={
+        "": ["data/**/*.*", "requirements.txt", "data/*.*", "html/*.*", "css/*.*"]
+    },
     install_requires=requires.splitlines(),
     url="https://github.com/nemo2011/bilibili-api",
     python_requires=">=3.8",

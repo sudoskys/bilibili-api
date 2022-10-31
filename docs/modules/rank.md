@@ -8,6 +8,11 @@ from bilibili_api import rank
 
 获取热门视频
 
+| name | type | description          |
+|------| ---- |----------------------|
+| ps   | int | 每页视频数, default to 20 |
+| pn   | int | 页码, default to 1     |
+
 **Returns:**:调用 API 返回的结果
 
 ## async def get_weakly_hot_videos_list()
@@ -37,3 +42,29 @@ from bilibili_api import rank
 获取视频排行榜
 
 **Returns:**:调用 API 返回的结果
+
+## async def get_music_rank_list()
+
+获取全站音乐榜每周信息(不包括具体的音频列表)
+
+**Returns:** dict: 调用 API 返回的结果
+
+## async def get_music_rank_weakly_detail()
+
+| name | type | description |
+| - | - | - |
+| week | int | 第几周 |
+
+获取全站音乐榜一周的详细信息(不包括具体的音频列表)
+
+**Returns:** dict: 调用 API 返回的结果
+
+## async def get_music_rank_weakly_musics()
+
+| name | type | description |
+| - | - | - |
+| week | int | 第几周 |
+
+获取全站音乐榜一周的音频列表
+
+**Returns:** dict: 调用 API 返回的结果
