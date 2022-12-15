@@ -1,7 +1,7 @@
 """
 bilibili_api.channel
 
-频道相关操作。
+分区相关操作。
 """
 
 import json
@@ -21,7 +21,7 @@ def get_channel_info_by_tid(tid: int):
     根据 tid 获取频道信息。
 
     Args:
-        tid (int):               频道的 tid。
+        tid (int): 频道的 tid。
 
     Returns:
         `tuple[dict | None, dict | None]`: 第一个是主分区，第二个是子分区，没有时返回 None。
@@ -38,11 +38,12 @@ def get_channel_info_by_tid(tid: int):
             return main_ch, None
 
         # 搜索子分区
-        for sub_ch in main_ch["sub"]:
-            if "tid" not in sub_ch:
-                continue
-            if tid == sub_ch["tid"]:
-                return main_ch, sub_ch
+        if "sub" in main_ch.keys():
+            for sub_ch in main_ch["sub"]:
+                if "tid" not in sub_ch:
+                    continue
+                if tid == sub_ch["tid"]:
+                    return main_ch, sub_ch
     else:
         return None, None
 
@@ -52,7 +53,7 @@ def get_channel_info_by_name(name: str):
     根据频道名称获取频道信息。
 
     Args:
-        name (str):               频道的名称。
+        name (str): 频道的名称。
 
     Returns:
         tuple[dict | None, dict | None]: 第一个是主分区，第二个是子分区，没有时返回 None。
@@ -65,9 +66,10 @@ def get_channel_info_by_name(name: str):
     for main_ch in channel:
         if name in main_ch["name"]:
             return main_ch, None
-        for sub_ch in main_ch["sub"]:
-            if name in sub_ch["name"]:
-                return main_ch, sub_ch
+        if "sub" in main_ch.keys():
+            for sub_ch in main_ch["sub"]:
+                if name in sub_ch["name"]:
+                    return main_ch, sub_ch
     else:
         return None, None
 
@@ -77,9 +79,9 @@ async def get_top10(tid: int, day: int = 7, credential: Credential = None):
     获取分区前十排行榜。
 
     Args:
-        tid (int):                          频道的 tid。
-        day (int, optional):                          3 天排行还是 7 天排行。 Defaults to 7.
-        credential (Credential, optional):  Credential 类。Defaults to None.
+        tid        (int)                 : 频道的 tid。
+        day        (int, optional)       : 3 天排行还是 7 天排行。 Defaults to 7.
+        credential (Credential, optional): Credential 类。Defaults to None.
 
     Returns:
         list: 前 10 的视频信息。
@@ -108,12 +110,13 @@ def get_channel_list():
     channel_list = []
     for channel_big in channel:
         channel_big_copy = copy.copy(channel_big)
-        channel_big_copy.pop("sub")
         channel_list.append(channel_big_copy)
-        for channel_sub in channel_big["sub"]:
-            channel_sub_copy = copy.copy(channel_sub)
-            channel_sub_copy["father"] = channel_big_copy
-            channel_list.append(channel_sub_copy)
+        if "sub" in channel_big.keys():
+            channel_big_copy.pop("sub")
+            for channel_sub in channel_big["sub"]:
+                channel_sub_copy = copy.copy(channel_sub)
+                channel_sub_copy["father"] = channel_big_copy
+                channel_list.append(channel_sub_copy)
     return channel_list
 
 
@@ -153,6 +156,9 @@ async def get_channel_new_videos(tid: int, credential: Credential = None):
     Args:
         tid(int)              : 分区 id
         credential(Credential): 凭据类
+    
+    Returns:
+        dict: 调用 API 返回的结果
     """
     credential = credential if credential else Credential()
     api = API["new"]

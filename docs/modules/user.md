@@ -116,6 +116,18 @@ from bilibili_api import user
 
 ---
 
+## async def name2uid()
+
+| name | type | description |
+| - | - | - |
+| names | str/List\[str\] | 用户名 |
+
+将用户名转为 uid
+
+**Returns** dict: 调用 API 返回的结果
+
+---
+
 ## class User
 
 用户相关
@@ -321,6 +333,7 @@ from bilibili_api import user
 | name | type           | description               |
 |------|----------------|---------------------------|
 | pn   | int, optional  | 页码，从 1 开始. Defaults to 1. |
+| ps   | int, optional | 每页的数据量. Defaults to 100. |
 | desc | bool, optional | 倒序排序. Defaults to True.   |
 
 获取用户关注列表（不是自己只能访问前5页）
@@ -338,6 +351,7 @@ from bilibili_api import user
 | name | type           | description               |
 |------|----------------|---------------------------|
 | pn   | int, optional  | 页码，从 1 开始. Defaults to 1. |
+| ps   | int, optional | 每页的数据量. Defaults to 100. |
 | desc | bool, optional | 倒序排序. Defaults to True.   |
 
 获取用户粉丝列表（不是自己只能访问前5页，是自己也不能获取全部的样子）

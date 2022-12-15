@@ -1,3 +1,8 @@
+"""
+bilibili_api.video_uploader
+
+视频上传
+"""
 import asyncio
 from asyncio.exceptions import CancelledError
 from asyncio.tasks import Task, create_task
@@ -20,6 +25,8 @@ import mimetypes
 from .utils.AsyncEvent import AsyncEvent
 from .utils.network_httpx import get_session, request, to_form_urlencoded
 from .utils.utils import chunk, get_api
+
+from .dynamic import upload_image
 
 # import ffmpeg
 
@@ -163,7 +170,7 @@ class VideoUploader(AsyncEvent):
                 "open": "int: 是否启用字幕投稿，1 or 0"
             },
             "tag": "str: 视频标签。使用英文半角逗号分隔的标签组。示例：标签 1,标签 1,标签 1",
-            "tid": "int: 分区 ID。可以使用 channel 模块进行查询。",
+            "tid": "int: 分区 ID (不能是主分区)。可以使用 channel 模块进行查询。",
             "title": "str: 视频标题",
             "up_close_danmaku": "bool: 是否关闭弹幕。",
             "up_close_reply": "bool: 是否关闭评论。",
@@ -435,21 +442,10 @@ class VideoUploader(AsyncEvent):
             str: 封面 URL
         """
         self.dispatch(VideoUploaderEvents.PRE_COVER.value, None)
-        api = _API["cover_up"]
-        mime = mimetypes.guess_type(self.cover_path)[0]
-
-        with open(self.cover_path, "rb") as f:
-            data = {
-                "cover": f"data:{mime};base64,{base64.b64encode(f.read()).decode()}"
-            }
-
         try:
-            resp = await request(
-                "POST", api["url"], data=data, credential=self.credential
-            )
-            self.dispatch(VideoUploaderEvents.AFTER_COVER.value, {"url": resp["url"]})
-            return resp["url"]
-
+            resp = await upload_image(open(self.cover_path, "rb").read(), self.credential)
+            self.dispatch(VideoUploaderEvents.AFTER_COVER.value, {"url": resp["image_url"]})
+            return resp["image_url"]
         except Exception as e:
             self.dispatch(VideoUploaderEvents.COVER_FAILED.value, {"err": e})
             raise e

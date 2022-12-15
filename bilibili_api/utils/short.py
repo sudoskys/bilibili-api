@@ -1,5 +1,6 @@
 """
 bilibili_api.utils.short
+
 一个很简单的处理短链接的模块，主要是读取跳转链接。
 """
 from .network_httpx import get_session
@@ -19,16 +20,11 @@ async def get_real_url(short_url: str):
     config["url"] = short_url
     config["follow_redirects"] = False
     if settings.proxy:
-        config["proxies"] = {settings.proxy_use: settings.proxy}
+        config["proxies"] = {"all://": settings.proxy}
     try:
         resp = await get_session().head(url=short_url, follow_redirects=True)
         u = resp.url
-        return (
-            u.raw[0].decode(encoding = "ascii") + 
-            "://" + 
-            u.raw[1].decode(encoding = "ascii") + 
-            u.raw[3].decode(encoding = "ascii")
-        )
+        return str(u)
     except Exception as e:
         raise e
 
@@ -42,6 +38,6 @@ async def get_headers(short_url: str):
     config["url"] = short_url
     config["follow_redirects"] = False
     if settings.proxy:
-        config["proxies"] = {settings.proxy_use: settings.proxy}
+        config["proxies"] = {"all://": settings.proxy}
     resp = await get_session().head(url=short_url, follow_redirects=False)
     return resp.headers

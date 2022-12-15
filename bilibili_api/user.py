@@ -16,7 +16,7 @@ from .utils.sync import sync
 from .utils.network_httpx import get_session, request
 from .utils.utils import get_api, join
 from .utils.Credential import Credential
-from typing import List
+from typing import List, Union
 import httpx
 
 API = get_api("user")
@@ -134,6 +134,26 @@ class RelationType(Enum):
     UNBLOCK = 6
     REMOVE_FANS = 7
 
+
+async def name2uid(names: Union[str, List[str]]):
+    """
+    将用户名转为 uid
+
+    Args:
+        names (str/List[str]): 用户名
+    
+    Returns:
+        dict: 调用 API 返回的结果
+    """
+    api = API["info"]["name_to_uid"]
+    if isinstance(names, str):
+        n = names
+    else:
+        n = ",".join(names)
+    params = {
+        "names": n
+    }
+    return await request("GET", api["url"], params = params)
 
 class User:
     """
@@ -488,23 +508,24 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def get_followings(self, pn: int = 1, desc: bool = True):
+    async def get_followings(self, pn: int = 1, ps: int = 100, attention: bool = False):
         """
         获取用户关注列表（不是自己只能访问前 5 页）
 
         Args:
-            pn   (int, optional) : 页码，从 1 开始. Defaults to 1.
-            desc (bool, optional): 倒序排序. Defaults to True.
+            pn        (int, optional)  : 页码，从 1 开始. Defaults to 1.
+            ps        (int, optional)  : 每页的数据量. Defaults to 100. 
+            attention (bool, optional) : 是否采用“最常访问”排序. Defaults to False. 
 
         Returns:
             dict: 调用接口返回的内容。
         """
-        api = API["info"]["followings"]
+        api = API["info"]["all_followings2"]
         params = {
             "vmid": self.__uid,
-            "ps": 20,
+            "ps": ps,
             "pn": pn,
-            "order": "desc" if desc else "asc",
+            "order_type": "attention" if attention else "",
         }
         return await request(
             "GET", url=api["url"], params=params, credential=self.credential
@@ -529,12 +550,13 @@ class User:
         )
         return data["card"]["attentions"]
 
-    async def get_followers(self, pn: int = 1, desc: bool = True):
+    async def get_followers(self, pn: int = 1, ps: int = 100, desc: bool = True):
         """
         获取用户粉丝列表（不是自己只能访问前 5 页，是自己也不能获取全部的样子）
 
         Args:
             pn   (int, optional) : 页码，从 1 开始. Defaults to 1.
+            ps   (int, optional) : 每页的数据量. Defaults to 100. 
             desc (bool, optional): 倒序排序. Defaults to True.
 
         Returns:
@@ -544,7 +566,7 @@ class User:
         api = API["info"]["followers"]
         params = {
             "vmid": self.__uid,
-            "ps": 20,
+            "ps": ps,
             "pn": pn,
             "order": "desc" if desc else "asc",
         }
@@ -974,7 +996,7 @@ async def get_self_coins(credential: Credential = None):
     return (await request("GET", url=api["url"], credential=credential))["money"]
 
 
-async def get_toview_list(credential: Credential = Credential()):
+async def get_toview_list(credential: Credential = None):
     """
     获取稍后再看列表
 
@@ -989,7 +1011,7 @@ async def get_toview_list(credential: Credential = Credential()):
     return await request("GET", api["url"], credential=credential)
 
 
-async def clear_toview_list(credential: Credential = Credential()):
+async def clear_toview_list(credential: Credential = None):
     """
     清空稍后再看列表
 
