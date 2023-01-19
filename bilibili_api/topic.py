@@ -1,7 +1,10 @@
 """
+bilibili_api.topic
+
 话题相关
 """
 
+from typing import Union
 from .utils.network_httpx import request
 from .utils.utils import get_api
 from .utils.Credential import Credential
@@ -15,7 +18,7 @@ class Topic:
     Attributes:
         credential (Credential): 凭据类
     """
-    def __init__(self, topic_id: int, credential: Credential = None):
+    def __init__(self, topic_id: int, credential: Union[Credential, None] = None):
         """
         Args:
             topic_id   (int)       : 话题 id
@@ -24,7 +27,7 @@ class Topic:
         self.__topic_id = topic_id
         self.credential = credential if credential else Credential()
 
-    def get_topic_id(self):
+    def get_topic_id(self) -> int:
         """
         获取话题 id
 
@@ -33,7 +36,7 @@ class Topic:
         """
         return self.__topic_id
 
-    async def get_info(self):
+    async def get_info(self) -> dict:
         """
         获取话题简介
         
@@ -46,7 +49,7 @@ class Topic:
         }
         return await request("GET", api["url"], params = params, credential = self.credential)
 
-    async def get_cards(self, size: int = 100):
+    async def get_cards(self, size: int = 100) -> dict:
         """
         获取话题下的内容
 

@@ -4,7 +4,7 @@ bilibili_api.utils.AsyncEvent
 发布-订阅模式异步事件类支持。
 """
 
-from typing import Any, Coroutine
+from typing import Any, Coroutine, Callable
 import asyncio
 
 
@@ -17,8 +17,9 @@ class AsyncEvent:
 
     def __init__(self):
         self.__handlers = {}
+        self.__ignore_events = []
 
-    def add_event_listener(self, name: str, handler: Coroutine):
+    def add_event_listener(self, name: str, handler: Coroutine) -> None:
         """
         注册事件监听器。
 
@@ -31,7 +32,7 @@ class AsyncEvent:
             self.__handlers[name] = []
         self.__handlers[name].append(handler)
 
-    def on(self, event_name: str):
+    def on(self, event_name: str) -> Callable:
         """
         装饰器注册事件监听器。
 
@@ -45,10 +46,13 @@ class AsyncEvent:
 
         return decorator
 
-    def remove_all_event_listener(self):
+    def remove_all_event_listener(self) -> None:
+        """
+        移除所有事件监听函数
+        """
         self.__handlers = {}
 
-    def remove_event_listener(self, name: str, handler: Coroutine):
+    def remove_event_listener(self, name: str, handler: Coroutine) -> bool:
         """
         移除事件监听函数。
 
@@ -65,8 +69,24 @@ class AsyncEvent:
                 self.__handlers[name].remove(handler)
                 return True
         return False
+    
+    def ignore_event(self, name: str) -> None:
+        """
+        忽略指定事件
 
-    def dispatch(self, name: str, data: Any = None):
+        Args:
+            name (str): 事件名。
+        """
+        name = name.upper()
+        self.__ignore_events.append(name)
+    
+    def remove_ignore_events(self) -> None:
+        """
+        移除所有忽略事件
+        """
+        self.__ignore_events = []
+
+    def dispatch(self, name: str, data: Any = None) -> None:
         """
         异步发布事件。
 
@@ -74,6 +94,9 @@ class AsyncEvent:
             name (str):       事件名。
             *args, **kwargs:  要传递给函数的参数。
         """
+        if name.upper() in self.__ignore_events:
+            return
+
         name = name.upper()
         if name in self.__handlers:
             for coroutine in self.__handlers[name]:

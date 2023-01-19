@@ -66,6 +66,12 @@ o----|xxx| (TEXT_RIGHT)
 
 **Returns:** int: 变量 id
 
+#### def refresh_value()
+
+刷新变量数值
+
+**Returns:** None
+
 #### def get_value()
 
 获取变量数值
@@ -105,7 +111,7 @@ o----|xxx| (TEXT_RIGHT)
 | text | str | 文字 |
 | x | int | X 轴 |
 | y | int | Y 轴 |
-| align | InteractiveButtonAlign | 按钮的文字在按钮中的位置 |
+| align | int \| InteractiveButtonAlign | 按钮的文字在按钮中的位置 |
 
 #### def get_text()
 
@@ -148,6 +154,21 @@ o----|xxx| (TEXT_RIGHT)
 
 ---
 
+## class InteractiveJumpingCommand
+
+节点跳转对变量的操作
+
+### Functions
+
+#### def \_\_init\_\_()
+
+| name | type | description |
+| - | - | - |
+| var | List[InteractiveVariable] | 所有变量 |
+| condition | str | 公式 |
+
+---
+
 ## class InteractiveNode
 
 互动视频节点类
@@ -161,8 +182,10 @@ o----|xxx| (TEXT_RIGHT)
 | video | InteractiveVideo | 视频类 |
 | node_id | int | 节点 id |
 | cid | int | CID |
-| button | InteractiveButton | 对应的按钮 |
+| vars | List[InteractiveVariable] | 变量 |
+| button | InteractiveButton \| None | 对应的按钮 |
 | condition | InteractiveJumpingCondition | 跳转公式 |
+| native_command | InteractiveJumpingCommand | 跳转时变量的操作 |
 | is_default | bool | 是不是默认的跳转的节点 |
 
 #### async def get_vars()
@@ -251,7 +274,7 @@ o----|xxx| (TEXT_RIGHT)
 
 **Returns:** 样式
 
-#### def get_root_node()
+#### async def get_root_node()
 
 获取根节点
 
@@ -317,7 +340,7 @@ o----|xxx| (TEXT_RIGHT)
 | name       | type                 | description                                          |
 | ---------- | -------------------- | ---------------------------------------------------- |
 | bvid       | str                  | BV 号。                                              |
-| edge_id    | int, optional        | 节点 ID，为 None 时获取根节点信息. Defaults to None. |
+| edge_id    | int \| None, optional        | 节点 ID，为 None 时获取根节点信息. Defaults to None. |
 | credential | Credential, optional | 凭据. Defaults to None.                              |
 
 获取剧情树节点信息。
@@ -331,58 +354,66 @@ o----|xxx| (TEXT_RIGHT)
 **Returns:** InteractiveGraph: 情节树
 
 
-#### async def get_download_url()
+---
+
+
+## class InteractiveVideoDownloaderEvents
+
+**Extends: enum.Enum**
+
++ START           : 开始下载
++ GET             : 获取到节点信息
++ PREPARE_DOWNLOAD: 准备下载节点
+
+**(以下为内建下载函数发布事件)**
+
++ DOWNLOAD_START  : 开始下载单个文件
++ DOWNLOAD_PART   : 文件分块部分完成
++ DOWNLOAD_SUCCESS: 完成下载
+
+**(END)**
+
++ PACKAGING       : 打包文件
++ SUCCESS         : 完成下载
++ ABORTED         : 终止下载
++ FAILED          : 下载失败
+
+---
+
+## class InteractiveVideoDownloader
+
+**Extends: AsyncEvent**
+
+互动视频下载类(下载格式：ivi)
+
+### Functions
+
+#### def \_\_init\_\_()
+
+| name               | type             | description                 |
+| ------------------ | ---------------- | --------------------------- |
+| video              | InteractiveVideo | 互动视频类                   |
+| out                | str              | 输出文件地址                  |
+| self_download_func | Coroutine \| None        | 自定义下载函数（需 async 函数） |
+
+`self_download_func` 函数应接受两个参数（第一个是下载 URL，第二个是输出地址（精确至文件名））
+
+#### async def start()
+
+开始下载
+
+#### async def abort()
+
+中断下载
+
+---
+
+## def get_ivi_file_info()
 
 | name | type | description |
 | - | - | - |
-| cid | int | 分 P 的 ID |
-| html5 | bool | 是否以 html5 平台访问，这样子能直接在网页中播放，但是链接少。 |
+| path | str | ivi 文件地址 |
 
-获取视频下载信息
+获取 ivi 文件的信息
 
-**Returns:** dict: 调用 API 返回的结果
-
-
-#### async def get_danmaku_view()
-
-| name | type | description |
-| - | - | - |
-| cid | int | 分 P 的 ID |
-
-获取弹幕设置、特殊弹幕、弹幕数量、弹幕分段等信息。
-
-
-**Returns:** dict: 调用 API 返回的结果
-
-
-#### async def get_danmakus()
-
-| name       | type                    | description                                               |
-| ---------- | ----------------------- | --------------------------------------------------------- |
-| cid | int | 分 P 的 ID |
-| date       | datetime.Date, optional | 指定日期后为获取历史弹幕，精确到年月日。Defaults to None. |
-
-获取弹幕
-
-**Returns:** dict: 调用 API 返回的结果
-
-#### async def get_danmaku_xml()
-
-| name | type | description |
-| - | - | - |
-| cid | int | 分 P 的 ID |
-
-获取所有弹幕的 xml 源文件（非装填的弹幕）
-
-**Returns:** dict: 调用 API 返回的结果
-
-#### async def get_history_danmaku_index()
-
-| name       | type                    | description                                               |
-| ---------- | ----------------------- | --------------------------------------------------------- |
-| cid | int | 分 P 的 ID |
-| date       | datetime.Date, optional | 指定日期后为获取历史弹幕，精确到年月日。Defaults to None. |
-
-获取特定月份存在历史弹幕的日期。
-
-**Returns**: None | List[str]: 调用 API 返回的结果。不存在时为 None。
+**Returns:** dict: ivi 文件信息

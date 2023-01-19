@@ -6,10 +6,15 @@ bilibili_api.article
 
 from copy import copy
 import json
-from typing import List, overload
+from enum import Enum
+from typing import List, overload, Union
+
+import httpx
 from .utils.utils import get_api
 from .utils.Credential import Credential
+from .note import Note, NoteType
 import re
+from html import unescape
 
 import yaml
 from .utils.network_httpx import get_session, request
@@ -17,6 +22,7 @@ from .exceptions.NetworkException import NetworkException, ApiException
 from bs4 import BeautifulSoup, element
 from datetime import datetime
 from urllib.parse import unquote
+from typing import TypeVar
 
 API = get_api("article")
 
@@ -53,6 +59,19 @@ ARTICLE_COLOR_MAP = {
     "gray-03": "5f5f5f",
 }
 
+class ArticleType(Enum):
+    """
+    专栏类型
+
+    - ARTICLE        : 普通专栏
+    - NOTE           : 笔记专栏
+    - SPECIAL_ARTICLE: 特殊专栏，采用笔记格式
+    """
+    ARTICLE = 0
+    NOTE = 2
+    SPECIAL_ARTICLE = 3
+
+ArticleT = TypeVar('ArticleT', bound="Article")
 
 class ArticleList:
     """
@@ -62,19 +81,19 @@ class ArticleList:
         credential (Credential): 凭据类
     """
 
-    def __init__(self, rlid: int, credential: Credential = None):
+    def __init__(self, rlid: int, credential: Union[Credential, None] = None):
         """
         Args:
-            rlid       (int)                 : 文集 id
-            credential (Credential, optional): 凭据类. Defaults to None. 
+            rlid       (int)                        : 文集 id
+            credential (Credential | None, optional): 凭据类. Defaults to None.
         """
         self.__rlid = rlid
         self.credential = credential
 
-    def get_rlid(self):
+    def get_rlid(self) -> int:
         return self.__rlid
 
-    async def get_content(self):
+    async def get_content(self) -> dict:
         """
         获取专栏文集文章列表
 
@@ -91,16 +110,16 @@ class ArticleList:
 class Article:
     """
     专栏类
-    
+
     Attributes:
         credential (Credential): 凭据类
     """
 
-    def __init__(self, cvid: int, credential: Credential = None):
+    def __init__(self, cvid: int, credential: Union[Credential, None] = None):
         """
         Args:
-            cvid       (int)                 : cv 号
-            credential (Credential, optional): 凭据. Defaults to None.
+            cvid       (int)                        : cv 号
+            credential (Credential | None, optional): 凭据. Defaults to None.
         """
         self.__children: List[Node] = []
         self.credential: Credential = (
@@ -110,10 +129,46 @@ class Article:
         self.__cvid = cvid
         self.__has_parsed: bool = False
 
-    def get_cvid(self):
+        api = API["info"]["view"]
+        params = {"id": self.__cvid}
+        resp = httpx.request(
+            "GET", api["url"], params=params, cookies=self.credential.get_cookies()
+        ).json()
+
+        # 设置专栏类别
+        if resp["data"]["type"] == 0:
+            self.__type = ArticleType.ARTICLE
+        elif resp["data"]["type"] == 2:
+            self.__type = ArticleType.NOTE
+        else:
+            self.__type = ArticleType.SPECIAL_ARTICLE
+
+    def get_cvid(self) -> int:
         return self.__cvid
 
-    def markdown(self):
+    def get_type(self) -> ArticleType:
+        """
+        获取专栏类型(专栏/笔记)
+
+        Returns:
+            ArticleType: 专栏类型
+        """
+        return self.__type
+
+    def is_note(self) -> bool:
+        """
+        检查专栏是否笔记
+
+        Returns:
+            bool: 是否笔记
+        """
+        return self.__type == ArticleType.NOTE
+
+    def turn_to_note(self) -> Note:
+        assert self.__type == ArticleType.NOTE
+        return Note(cvid=self.__cvid, note_type=NoteType.PUBLIC, credential=self.credential)
+
+    def markdown(self) -> str:
         """
         转换为 Markdown
 
@@ -139,7 +194,7 @@ class Article:
         content = f"---\n{meta_yaml}\n---\n\n{content}"
         return content
 
-    def json(self):
+    def json(self) -> dict:
         """
         转换为 JSON 数据
 
@@ -157,23 +212,23 @@ class Article:
             "children": list(map(lambda x: x.json(), self.__children)),
         }
 
-    async def fetch_content(self):
+    async def fetch_content(self) -> None:
         """
         获取并解析专栏内容
-
         该返回不会返回任何值，调用该方法后请再调用 `self.markdown()` 或 `self.json()` 来获取你需要的值。
         """
+
         resp = await self.get_all()
 
         document = BeautifulSoup(f"<div>{resp['readInfo']['content']}</div>", "lxml")
 
-        def parse(el: BeautifulSoup):
+        async def parse(el: BeautifulSoup):
             node_list = []
 
-            for e in el.contents:
+            for e in el.contents: # type: ignore
                 if type(e) == element.NavigableString:
                     # 文本节点
-                    node = TextNode(e)
+                    node = TextNode(e) # type: ignore
                     node_list.append(node)
                     continue
 
@@ -193,21 +248,21 @@ class Article:
                         else:
                             node.align = "left"
 
-                    node.children = parse(e)
+                    node.children = await parse(e)
 
                 elif e.name == "h1":
                     # 标题
                     node = HeadingNode()
                     node_list.append(node)
 
-                    node.children = parse(e)
+                    node.children = await parse(e)
 
                 elif e.name == "strong":
                     # 粗体
                     node = BoldNode()
                     node_list.append(node)
 
-                    node.children = parse(e)
+                    node.children = await parse(e)
 
                 elif e.name == "span":
                     # 各种样式
@@ -219,7 +274,7 @@ class Article:
                             node = DelNode()
                             node_list.append(node)
 
-                            node.children = parse(e)
+                            node.children = await parse(e)
 
                     elif "class" in e.attrs:
                         className = e.attrs["class"][0]
@@ -229,18 +284,18 @@ class Article:
                             node = FontSizeNode()
                             node_list.append(node)
 
-                            node.size = int(re.search("font-size-(\d\d)", className)[1])
-                            node.children = parse(e)
+                            node.size = int(re.search("font-size-(\d\d)", className)[1]) # type: ignore
+                            node.children = await parse(e)
 
                         elif "color" in className:
                             # 字体颜色
                             node = ColorNode()
                             node_list.append(node)
 
-                            color_text = re.search("color-(.*);?", className)[1]
+                            color_text = re.search("color-(.*);?", className)[1] # type: ignore
                             node.color = ARTICLE_COLOR_MAP[color_text]
 
-                            node.children = parse(e)
+                            node.children = await parse(e)
                         else:
                             if e.text != "":
                                 # print(e.text.replace("\n", ""))
@@ -248,21 +303,21 @@ class Article:
                                 node = TextNode(e.text)
                                 # print("Add a text node: ", e.text)
                                 node_list.append(node)
-                                node.children = parse(e)
+                                node.children = parse(e) # type: ignore
 
                 elif e.name == "blockquote":
                     # 引用块
                     # print(e.text)
                     node = BlockquoteNode()
                     node_list.append(node)
-                    node.children = parse(e)
+                    node.children = await parse(e)
 
                 elif e.name == "figure":
                     if "class" in e.attrs:
                         className = e.attrs["class"]
 
                         if "img-box" in className:
-                            img_el: BeautifulSoup = e.find("img")
+                            img_el: BeautifulSoup = e.find("img") # type: ignore
 
                             if "class" in img_el.attrs:
                                 className = img_el.attrs["class"]
@@ -332,19 +387,19 @@ class Article:
                                 node = ImageNode()
                                 node_list.append(node)
 
-                                node.url = "https:" + e.find("img").attrs["data-src"]
+                                node.url = "https:" + e.find("img").attrs["data-src"] # type: ignore
 
-                                figcaption_el: BeautifulSoup = e.find("figcaption")
+                                figcaption_el: BeautifulSoup = e.find("figcaption") # type: ignore
 
                                 if figcaption_el.contents:
-                                    node.alt = figcaption_el.contents[0]
+                                    node.alt = figcaption_el.contents[0] # type: ignore
 
                         elif "code-box" in className:
                             # 代码块
                             node = CodeNode()
                             node_list.append(node)
 
-                            pre_el: BeautifulSoup = e.find("pre")
+                            pre_el: BeautifulSoup = e.find("pre") # type: ignore
                             node.lang = pre_el.attrs["data-lang"].split("@")[0].lower()
                             node.code = unquote(pre_el.attrs["codecontent"])
 
@@ -353,29 +408,52 @@ class Article:
                     node = OlNode()
                     node_list.append(node)
 
-                    node.children = parse(e)
+                    node.children = await parse(e)
 
                 elif e.name == "li":
                     # 列表元素
                     node = LiNode()
                     node_list.append(node)
 
-                    node.children = parse(e)
+                    node.children = await parse(e)
 
                 elif e.name == "ul":
                     # 无序列表
                     node = UlNode()
                     node_list.append(node)
 
-                    node.children = parse(e)
+                    node.children = await parse(e)
 
                 elif e.name == "a":
                     # 超链接
-                    node = AnchorNode()
-                    node_list.append(node)
+                    if len(e.contents) == 0:
+                        from .utils.parse_link import parse_link, ResourceType
+                        parse_link_res = await parse_link(e.attrs["href"])
+                        if parse_link_res[1] == ResourceType.VIDEO:
+                            node = VideoCardNode()
+                            node.aid = parse_link_res[0].get_aid()
+                            node_list.append(node)
+                        elif parse_link_res[1] == ResourceType.AUDIO:
+                            node = MusicCardNode()
+                            node.auid = parse_link_res[0].get_auid()
+                            node_list.append(node)
+                        elif parse_link_res[1] == ResourceType.LIVE:
+                            node = LiveCardNode()
+                            node.room_id = parse_link_res[0].room_display_id
+                            node_list.append(node)
+                        elif parse_link_res[1] == ResourceType.ARTICLE:
+                            node = ArticleCardNode()
+                            node.cvid = parse_link_res[0].get_cvid()
+                            node_list.append(node)
+                        else:
+                            # XXX: 暂不支持其他的站内链接
+                            pass
+                    else:
+                        node = AnchorNode()
+                        node_list.append(node)
 
-                    node.url = e.attrs["href"]
-                    node.text = e.contents[0]
+                        node.url = e.attrs["href"]
+                        node.text = e.contents[0] # type: ignore
 
                 elif e.name == "img":
                     className = e.attrs["class"]
@@ -385,20 +463,75 @@ class Article:
                         node = LatexNode()
                         node_list.append(node)
 
-                        node.code = unquote(e["alt"])
+                        node.code = unquote(e["alt"]) # type: ignore
 
             return node_list
 
+        def parse_note(data: List[dict]):
+            for field in data:
+                if not isinstance(field["insert"], str):
+                    if "tag" in field["insert"].keys():
+                        node = VideoCardNode()
+                        node.aid = json.loads(
+                            httpx.get("https://hd.biliplus.com/api/cidinfo?cid=" + str(field["insert"]["tag"]["cid"])).text
+                        )["data"]["cid"]
+                        self.__children.append(node)
+                    elif "imageUpload" in field["insert"].keys():
+                        node = ImageNode()
+                        node.url = field["insert"]["imageUpload"]["url"]
+                        self.__children.append(node)
+                    elif "cut-off" in field["insert"].keys():
+                        node = ImageNode()
+                        node.url = field["insert"]["cut-off"]["url"]
+                        self.__children.append(node)
+                    else:
+                        raise Exception()
+                else:
+                    node = TextNode(field["insert"])
+                    if "attributes" in field.keys():
+                        if field["attributes"].get("bold") == True:
+                            bold = BoldNode()
+                            bold.children = [node]
+                            node = bold
+                        if field["attributes"].get("strike") == True:
+                            delete = DelNode()
+                            delete.children = [node]
+                            node = delete
+                        if field["attributes"].get("underline") == True:
+                            underline = UnderlineNode()
+                            underline.children = [node]
+                            node = underline
+                        if field["attributes"].get("background") == True:
+                            # FIXME: 暂不支持背景颜色
+                            pass
+                        if field["attributes"].get("color") != None:
+                            color = ColorNode()
+                            color.color = field["attributes"]["color"].replace("#", "")
+                            color.children = [node]
+                            node = color
+                        if field["attributes"].get("size") != None:
+                            size = FontSizeNode()
+                            size.size = field["attributes"]["size"]
+                            size.children = [node]
+                            node = size
+                    else:
+                        pass
+                    self.__children.append(node)
         # 文章元数据
         self.__meta = copy(resp["readInfo"])
         del self.__meta["content"]
 
         # 解析正文
-        self.__children = parse(document.find("div"))
+        if self.__type != ArticleType.SPECIAL_ARTICLE:
+            self.__children = await parse(document.find("div")) # type: ignore
+        else:
+            s = resp["readInfo"]["content"]
+            s = unescape(s)
+            parse_note(json.loads(s)["ops"])
 
         self.__has_parsed = True
 
-    async def get_info(self):
+    async def get_info(self) -> dict:
         """
         获取专栏信息
 
@@ -408,11 +541,12 @@ class Article:
 
         api = API["info"]["view"]
         params = {"id": self.__cvid}
-        return await request(
+        resp = await request(
             "GET", api["url"], params=params, credential=self.credential
         )
+        return resp
 
-    async def get_all(self):
+    async def get_all(self) -> dict:
         """
         一次性获取专栏尽可能详细数据，包括原始内容、标签、发布时间、标题、相关专栏推荐等
 
@@ -423,7 +557,7 @@ class Article:
         resp = await sess.get(f"https://www.bilibili.com/read/cv{self.__cvid}")
         html = resp.text
 
-        match = re.search("window\.__INITIAL_STATE__=(\{.+?\});", html, re.I)
+        match = re.search("window\.__INITIAL_STATE__=(\{.+?\});", html, re.I) # type: ignore
 
         if not match:
             raise ApiException("找不到信息")
@@ -432,13 +566,13 @@ class Article:
 
         return data
 
-    async def set_like(self, status: bool = True):
+    async def set_like(self, status: bool = True) -> dict:
         """
         设置专栏点赞状态
 
         Args:
             status (bool, optional): 点赞状态. Defaults to True
-        
+
         Returns:
             dict: 调用 API 返回的结果
         """
@@ -448,7 +582,7 @@ class Article:
         data = {"id": self.__cvid, "type": 1 if status else 2}
         return await request("POST", api["url"], data=data, credential=self.credential)
 
-    async def set_favorite(self, status: bool = True):
+    async def set_favorite(self, status: bool = True) -> dict:
         """
         设置专栏收藏状态
 
@@ -467,7 +601,7 @@ class Article:
         data = {"id": self.__cvid}
         return await request("POST", api["url"], data=data, credential=self.credential)
 
-    async def add_coins(self):
+    async def add_coins(self) -> dict:
         """
         给专栏投币，目前只能投一个
 
@@ -481,17 +615,19 @@ class Article:
         data = {"aid": self.__cvid, "multiply": 1, "upid": upid, "avtype": 2}
         return await request("POST", api["url"], data=data, credential=self.credential)
 
+    # TODO: 专栏上传/编辑/删除
+
 
 class Node:
     def __init__(self):
         pass
 
     @overload
-    def markdown(self):
+    def markdown(self) -> str: # type: ignore
         pass
 
     @overload
-    def json(self):
+    def json(self) -> dict: # type: ignore
         pass
 
 
@@ -571,7 +707,7 @@ class BoldNode(Node):
         t = "".join([node.markdown() for node in self.children])
         if len(t) == 0:
             return ""
-        return f" **{t.lstrip().rstrip()}**"
+        return f" **{t.lstrip().rstrip()}** "
 
     def json(self):
         return {
@@ -588,13 +724,24 @@ class DelNode(Node):
         text = "".join([node.markdown() for node in self.children])
         if len(text) == 0:
             return ""
-        return f" ~~{text}~~"
+        return f" ~~{text}~~ "
 
     def json(self):
         return {
             "type": "DelNode",
             "children": list(map(lambda x: x.json(), self.children)),
         }
+
+
+class UnderlineNode(Node):
+    def __init__(self):
+        self.children = []
+
+    def markdown(self):
+        text = "".join([node.markdown() for node in self.children])
+        if len(text) == 0:
+            return ""
+        return " $\\underline{" + text + "}$ "
 
 
 class UlNode(Node):

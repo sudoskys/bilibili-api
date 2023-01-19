@@ -11,8 +11,6 @@ import time
 
 from .exceptions import ResponseCodeException
 
-from .utils.sync import sync
-
 from .utils.network_httpx import get_session, request
 from .utils.utils import get_api, join
 from .utils.Credential import Credential
@@ -141,7 +139,7 @@ async def name2uid(names: Union[str, List[str]]):
 
     Args:
         names (str/List[str]): 用户名
-    
+
     Returns:
         dict: 调用 API 返回的结果
     """
@@ -160,11 +158,11 @@ class User:
     用户相关
     """
 
-    def __init__(self, uid: int, credential: Credential = None):
+    def __init__(self, uid: int, credential: Union[Credential, None] = None):
         """
         Args:
-            uid        (int)                 : 用户 UID
-            credential (Credential, optional): 凭据. Defaults to None.
+            uid        (int)                        : 用户 UID
+            credential (Credential | None, optional): 凭据. Defaults to None.
         """
         self.__uid = uid
 
@@ -173,7 +171,7 @@ class User:
         self.credential = credential
         self.__self_info = None
 
-    async def get_user_info(self):
+    async def get_user_info(self) -> dict:
         """
         获取用户信息（昵称，性别，生日，签名，头像 URL，空间横幅 URL 等）
 
@@ -186,7 +184,7 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def __get_self_info(self):
+    async def __get_self_info(self) -> dict:
         """
         获取自己的信息。如果存在缓存则使用缓存。
 
@@ -199,16 +197,10 @@ class User:
         self.__self_info = await get_self_info(credential=self.credential)
         return self.__self_info
 
-    def get_uid(self):
-        """
-        获取用户 uid
-
-        Returns:
-            用户 uid
-        """
+    def get_uid(self) -> int:
         return self.__uid
 
-    async def get_user_fav_tag(self):
+    async def get_user_fav_tag(self) -> dict:
         """
         获取用户关注的 Tag 信息，如果用户设为隐私，则返回 获取登录数据失败
 
@@ -240,7 +232,7 @@ class User:
             r_json = {"status": False, "data": "Failed"}
         return r_json
 
-    async def get_space_notice(self):
+    async def get_space_notice(self) -> dict:
         """
         获取用户空间公告
 
@@ -253,7 +245,7 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def set_space_notice(self, content: str = ""):
+    async def set_space_notice(self, content: str = "") -> dict:
         """
         修改用户空间公告
 
@@ -273,7 +265,7 @@ class User:
             "POST", url=api["url"], data=data, credential=self.credential
         )
 
-    async def get_relation_info(self):
+    async def get_relation_info(self) -> dict:
         """
         获取用户关系信息（关注数，粉丝数，悄悄关注，黑名单数）
 
@@ -286,7 +278,7 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def get_up_stat(self):
+    async def get_up_stat(self) -> dict:
         """
         获取 UP 主数据信息（视频总播放量，文章总阅读量，总点赞数）
 
@@ -301,7 +293,7 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def get_top_videos(self):
+    async def get_top_videos(self) -> dict:
         """
         获取用户的指定视频（代表作）
 
@@ -314,7 +306,7 @@ class User:
             "GET", api["url"], params=params, credential=self.credential
         )
 
-    async def get_user_medal(self):
+    async def get_user_medal(self) -> dict:
         """
         读取用户粉丝牌详细列表，如果隐私则不可以
 
@@ -329,7 +321,7 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def get_live_info(self):
+    async def get_live_info(self) -> dict:
         """
         获取用户直播间信息。
 
@@ -349,7 +341,7 @@ class User:
         ps: int = 30,
         keyword: str = "",
         order: VideoOrder = VideoOrder.PUBDATE,
-    ):
+    ) -> dict:
         """
         获取用户投稿视频信息。
 
@@ -378,7 +370,7 @@ class User:
 
     async def get_audios(
         self, order: AudioOrder = AudioOrder.PUBDATE, pn: int = 1, ps: int = 30
-    ):
+    ) -> dict:
         """
         获取用户投稿音频。
 
@@ -398,7 +390,7 @@ class User:
 
     async def get_album(
         self, biz: AlbumType = AlbumType.ALL, page_num: int = 1, page_size: int = 30
-    ):
+    ) -> dict:
         """
         获取用户投稿音频。
 
@@ -423,7 +415,7 @@ class User:
 
     async def get_articles(
         self, pn: int = 1, order: ArticleOrder = ArticleOrder.PUBDATE, ps: int = 30
-    ):
+    ) -> dict:
         """
         获取用户投稿专栏。
 
@@ -441,7 +433,7 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def get_article_list(self, order: ArticleListOrder = ArticleListOrder.LATEST):
+    async def get_article_list(self, order: ArticleListOrder = ArticleListOrder.LATEST) -> dict:
         """
         获取用户专栏文集。
 
@@ -457,7 +449,7 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def get_dynamics(self, offset: int = 0, need_top: bool = False):
+    async def get_dynamics(self, offset: int = 0, need_top: bool = False) -> dict:
         """
         获取用户动态。
 
@@ -491,7 +483,7 @@ class User:
 
     async def get_subscribed_bangumi(
         self, pn: int = 1, type_: BangumiType = BangumiType.BANGUMI
-    ):
+    ) -> dict:
         """
         获取用户追番/追剧列表。
 
@@ -508,14 +500,14 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def get_followings(self, pn: int = 1, ps: int = 100, attention: bool = False):
+    async def get_followings(self, pn: int = 1, ps: int = 100, attention: bool = False) -> dict:
         """
         获取用户关注列表（不是自己只能访问前 5 页）
 
         Args:
             pn        (int, optional)  : 页码，从 1 开始. Defaults to 1.
-            ps        (int, optional)  : 每页的数据量. Defaults to 100. 
-            attention (bool, optional) : 是否采用“最常访问”排序. Defaults to False. 
+            ps        (int, optional)  : 每页的数据量. Defaults to 100.
+            attention (bool, optional) : 是否采用“最常访问”排序. Defaults to False.
 
         Returns:
             dict: 调用接口返回的内容。
@@ -531,7 +523,7 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def get_all_followings(self):
+    async def get_all_followings(self) -> dict:
         """
         获取所有的关注列表。（如果用户设置保密会没有任何数据）
 
@@ -550,13 +542,13 @@ class User:
         )
         return data["card"]["attentions"]
 
-    async def get_followers(self, pn: int = 1, ps: int = 100, desc: bool = True):
+    async def get_followers(self, pn: int = 1, ps: int = 100, desc: bool = True) -> dict:
         """
         获取用户粉丝列表（不是自己只能访问前 5 页，是自己也不能获取全部的样子）
 
         Args:
             pn   (int, optional) : 页码，从 1 开始. Defaults to 1.
-            ps   (int, optional) : 每页的数据量. Defaults to 100. 
+            ps   (int, optional) : 每页的数据量. Defaults to 100.
             desc (bool, optional): 倒序排序. Defaults to True.
 
         Returns:
@@ -574,7 +566,7 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def top_followers(self, since=None):
+    async def top_followers(self, since=None) -> dict:
         """
         获取用户粉丝排行
         Args:
@@ -591,7 +583,7 @@ class User:
             "GET", url=api["url"], params=params, credential=self.credential
         )
 
-    async def get_overview_stat(self):
+    async def get_overview_stat(self) -> dict:
         """
         获取用户的简易订阅和投稿信息。
 
@@ -606,7 +598,7 @@ class User:
 
     # 操作用户
 
-    async def modify_relation(self, relation: RelationType):
+    async def modify_relation(self, relation: RelationType) -> dict:
         """
         修改和用户的关系，比如拉黑、关注、取关等。
 
@@ -626,7 +618,7 @@ class User:
             "POST", url=api["url"], data=data, credential=self.credential
         )
 
-    async def get_channel_videos_series(self, sid: int, pn: int = 1, ps: int = 100):
+    async def get_channel_videos_series(self, sid: int, pn: int = 1, ps: int = 100) -> dict:
         """
         查看频道内所有视频。仅供 series_list。
 
@@ -650,7 +642,7 @@ class User:
         sort: ChannelOrder = ChannelOrder.DEFAULT,
         pn: int = 1,
         ps: int = 100,
-    ):
+    ) -> dict:
         """
         查看频道内所有视频。仅供 season_list。
 
@@ -675,7 +667,7 @@ class User:
             "GET", url=api["url"], params=param, credential=self.credential
         )
 
-    async def get_channel_list(self):
+    async def get_channel_list(self) -> dict:
         """
         查看用户所有的频道（包括新版）和部分视频。
         适用于获取列表。
@@ -698,7 +690,7 @@ class User:
             "GET", url=api["url"], params=param, credential=self.credential
         )
 
-    async def get_channels(self):
+    async def get_channels(self) -> List["ChannelSeries"]:
         """
         获取用户所有合集
 
@@ -733,7 +725,7 @@ class User:
             )
         return channels
 
-    async def get_cheese(self):
+    async def get_cheese(self) -> dict:
         """
         查看用户的所有课程
 
@@ -744,7 +736,7 @@ class User:
         params = {"mid": self.__uid}
         return await request("GET", api["url"], params=params)
 
-    async def get_reservation(self):
+    async def get_reservation(self) -> dict:
         """
         获取用户空间预约
 
@@ -757,15 +749,151 @@ class User:
             "GET", api["url"], params=params, credential=self.credential
         )
 
+async def create_channel_series(
+    name: str,
+    aids: List[int] = [],
+    keywords: List[str] = [],
+    description: str = "",
+    credential: Union[Credential, None] = None
+) -> dict:
+    """
+    新建一个视频列表 (旧版合集)
+
+    Args:
+        name (str): 列表名称。
+        aids (List[int]): 要加入列表的视频的 aid 列表。
+        keywords (List[str]): 列表的关键词。
+        description (str): 列表的描述。
+        credential (Credential | None): 凭据类。
+
+    Returns:
+        dict: 调用 API 返回的结果
+    """
+    credential = credential if credential else Credential()
+    credential.raise_for_no_sessdata()
+    credential.raise_for_no_bili_jct()
+    api = API["channel_series"]["create"]
+    info = await get_self_info(credential)
+    data = {
+        "mid": info["mid"],
+        "aids": ",".join(map(lambda x: str(x), aids)),
+        "name": name,
+        "keywords": ",".join(keywords),
+        "description": description
+    }
+    return await request(
+        "POST", api["url"], data=data, credential=credential
+    )
+
+async def del_channel_series(
+    series_id: int,
+    credential: Credential
+) -> dict:
+    """
+    删除视频列表(旧版合集)
+
+    Args:
+        series_id  (int)       : 旧版合集 id。
+        credential (Credential): 凭据类。
+
+    Returns:
+        dict: 调用 API 返回的结果
+    """
+    credential.raise_for_no_sessdata()
+    credential.raise_for_no_bili_jct()
+    series_total = ChannelSeries(
+        type_=ChannelSeriesType.SERIES,
+        id_=series_id,
+        credential=credential
+    ).get_meta()["total"]
+    self_uid = (await get_self_info(credential))["mid"]
+    aids = []
+    pages = series_total // 20 + (1 if (series_total % 20 != 0) else 0)
+    for page in range(1, pages + 1, 1):
+        page_info = \
+            await User(self_uid, credential).get_channel_videos_series(
+                series_id,
+                page,
+                20
+            )
+        for aid in page_info["aids"]:
+            aids.append(aid)
+    api = API["channel_series"]["del_channel_series"]
+    data = {
+        "mid": self_uid,
+        "series_id": series_id,
+        "aids": ",".join(map(lambda x: str(x), aids))
+    }
+    return await request(
+        "POST", api["url"], data=data, credential=credential
+    )
+
+async def add_aids_to_series(
+    series_id: int,
+    aids: List[int],
+    credential: Credential
+) -> dict:
+    """
+    添加视频至视频列表(旧版合集)
+
+    Args:
+        series_id  (int)       : 旧版合集 id。
+        aids       (List[int]) : 视频 aid 列表。
+        credential (Credential): 凭据类。
+
+    Returns:
+        dict: 调用 API 返回的结果
+    """
+    credential.raise_for_no_sessdata()
+    credential.raise_for_no_bili_jct()
+    self_info = await get_self_info(credential)
+    api = API["channel_series"]["add_channel_aids_series"]
+    data = {
+        "mid": self_info["mid"],
+        "series_id": series_id,
+        "aids": ",".join(map(lambda x: str(x), aids))
+    }
+    return await request(
+        "POST", api["url"], data=data, credential=credential
+    )
+
+async def del_aids_from_series(
+    series_id: int,
+    aids: List[int],
+    credential: Credential
+) -> dict:
+    """
+    从视频列表(旧版合集)删除视频
+
+    Args:
+        series_id  (int)       : 旧版合集 id。
+        aids       (List[int]) : 视频 aid 列表。
+        credential (Credential): 凭据类。
+
+    Returns:
+        dict: 调用 API 返回的结果
+    """
+    credential.raise_for_no_sessdata()
+    credential.raise_for_no_bili_jct()
+    self_info = await get_self_info(credential)
+    api = API["channel_series"]["del_channel_aids_series"]
+    data = {
+        "mid": self_info["mid"],
+        "series_id": series_id,
+        "aids": ",".join(map(lambda x: str(x), aids))
+    }
+    return await request(
+        "POST", api["url"], data=data, credential=credential
+    )
 
 class ChannelSeriesType(Enum):
     """
     合集与列表类型
 
-    + SERIES: 旧版
-    + SEASON: 新版
+    + SERIES: 相同视频分类
+    + SEASON: 新概念多 P
 
-    **新版合集名字为`合集·XXX`，请注意区别**
+    **SEASON 类合集与列表名字为`合集·XXX`，请注意区别**
     """
 
     SERIES = 0
@@ -775,73 +903,70 @@ class ChannelSeriesType(Enum):
 class ChannelSeries:
     """
     合集与列表类
+
+    Attributes:
+        credential (Credential): 凭据类. Defaults to None.
     """
 
     def __init__(
         self,
-        uid: int,
-        type_: ChannelSeriesType = ChannelSeriesType.SEASON,
-        id_: int = 0,
-        credential: Credential = None,
+        uid: int = -1,
+        type_: ChannelSeriesType = ChannelSeriesType.SERIES,
+        id_: int = -1,
+        credential: Union[Credential, None] = None,
         meta=None,
     ):
         """
-        uid(int)                : 用户 uid
-        type_(ChannelSeriesType): 合集与列表类型
-        id_(int)                : season_id 或 series_id
-        credential(Credential)  : 凭证
+        Args:
+            uid(int)                : 用户 uid. Defaults to -1.
+            type_(ChannelSeriesType): 合集与列表类型. Defaults to ChannelSeriesType.SERIES.
+            id_(int)                : season_id 或 series_id. Defaults to -1.
+            credential(Credential)  : 凭证. Defaults to None.
         """
+        assert id_ != -1
+        assert type_ != None
         self.__uid = uid
         self.is_new = type_.value
         self.id_ = id_
         self.owner = User(self.__uid, credential=credential)
         self.credential = credential
         self.meta = None
-        if self.is_new:
-            look_type = "seasons"
-        else:
-            look_type = "series"
         if meta is None:
-            credential = self.credential if self.credential else Credential()
-            api = API["info"]["channel_list"]
-            param = {"mid": self.__uid, "page_num": 1, "page_size": 1}
-            res = httpx.request(
-                "GET", url=api["url"], params=param, cookies=credential.get_cookies()
-            )
-            items = json.loads(res.text)["data"]["items_lists"]["page"]["total"]
-            time.sleep(0.5)
-            if items == 0:
-                items = 1
-            param["page_size"] = items
-            channel_list = json.loads(
-                httpx.request(
-                    "GET",
-                    url=api["url"],
-                    params=param,
-                    cookies=credential.get_cookies(),
-                ).text
-            )["data"]
-            for channel in channel_list["items_lists"][look_type + "_list"]:
-                type_id = channel["meta"]["season_id" if self.is_new else "series_id"]
-                if type_id == self.id_:
-                    self.meta = channel["meta"]
-            if self.meta is None:
-                raise ValueError("未找到频道信息。")
+            if self.is_new:
+                api = API["channel_series"]["season_info"]
+                params = {
+                    "season_id": self.id_
+                }
+            else:
+                api = API["channel_series"]["info"]
+                params = {
+                    "series_id": self.id_
+                }
+            resp = json.loads(httpx.get(api["url"], params = params).text)["data"]
+            if self.is_new:
+                self.meta = resp["info"]
+                self.meta["mid"] = resp["upper"]["mid"]
+                self.__uid = self.meta["mid"]
+                self.owner = User(self.__uid, credential=credential)
+            else:
+                self.meta = resp["meta"]
+                self.__uid = self.meta["mid"]
+                self.owner = User(self.__uid, credential=credential)
         else:
             self.meta = meta
 
-    def get_meta(self):
+    def get_meta(self) -> dict:
         """
         获取元数据
 
         Returns:
             调用 API 返回的结果
         """
-        return self.meta
+        return self.meta # type: ignore
 
     async def get_videos(
         self, sort: ChannelOrder = ChannelOrder.DEFAULT, pn: int = 1, ps: int = 100
-    ):
+    ) -> dict:
         """
         获取合集视频
         Args:
@@ -858,7 +983,7 @@ class ChannelSeries:
             return await self.owner.get_channel_videos_series(self.id_, pn, ps)
 
 
-async def get_self_info(credential: Credential):
+async def get_self_info(credential: Credential) -> dict:
     """
     获取自己的信息
 
@@ -870,8 +995,27 @@ async def get_self_info(credential: Credential):
 
     return await request("GET", api["url"], credential=credential)
 
+async def edit_self_info(birthday: str, sex: str, uname: str, usersign: str, credential: Credential) -> dict:
+    """
+    修改自己的信息 (Web)
 
-async def create_subscribe_group(name: str, credential: Credential):
+    Args:
+        birthday (str)      : 生日 YYYY-MM-DD
+        sex (str)           : 性别 男|女|保密
+        uname (str)         : 用户名
+        usersign (str)      : 个性签名
+        credential (Credential): Credential
+    """
+
+    credential.raise_for_no_sessdata()
+    credential.raise_for_no_bili_jct()
+
+    api = API["info"]["edit_my_info"]
+    data = {"birthday": birthday, "sex": sex, "uname": uname, "usersign": usersign}
+
+    return await request("POST", api["url"], data=data, credential=credential)
+
+async def create_subscribe_group(name: str, credential: Credential) -> dict:
     """
     创建用户关注分组
 
@@ -891,7 +1035,7 @@ async def create_subscribe_group(name: str, credential: Credential):
     return await request("POST", api["url"], data=data, credential=credential)
 
 
-async def delete_subscribe_group(group_id: int, credential: Credential):
+async def delete_subscribe_group(group_id: int, credential: Credential) -> dict:
     """
     删除用户关注分组
 
@@ -911,7 +1055,7 @@ async def delete_subscribe_group(group_id: int, credential: Credential):
     return await request("POST", api["url"], data=data, credential=credential)
 
 
-async def rename_subscribe_group(group_id: int, new_name: str, credential: Credential):
+async def rename_subscribe_group(group_id: int, new_name: str, credential: Credential) -> dict:
     """
     重命名关注分组
 
@@ -934,7 +1078,7 @@ async def rename_subscribe_group(group_id: int, new_name: str, credential: Crede
 
 async def set_subscribe_group(
     uids: List[int], group_ids: List[int], credential: Credential
-):
+) -> dict:
     """
     设置用户关注分组
 
@@ -956,8 +1100,8 @@ async def set_subscribe_group(
 
 
 async def get_self_history(
-    page_num: int = 1, per_page_item: int = 100, credential: Credential = None
-):
+    page_num: int = 1, per_page_item: int = 100, credential: Union[Credential, None] = None
+) -> dict:
     """
     获取用户浏览历史记录
 
@@ -980,7 +1124,7 @@ async def get_self_history(
     return await request("GET", url=api["url"], params=params, credential=credential)
 
 
-async def get_self_coins(credential: Credential = None):
+async def get_self_coins(credential: Credential):
     """
     获取自己的硬币数量。
     如果接口返回错误代码则为身份校验失败
@@ -996,7 +1140,7 @@ async def get_self_coins(credential: Credential = None):
     return (await request("GET", url=api["url"], credential=credential))["money"]
 
 
-async def get_toview_list(credential: Credential = None):
+async def get_toview_list(credential: Credential):
     """
     获取稍后再看列表
 
@@ -1011,7 +1155,7 @@ async def get_toview_list(credential: Credential = None):
     return await request("GET", api["url"], credential=credential)
 
 
-async def clear_toview_list(credential: Credential = None):
+async def clear_toview_list(credential: Credential):
     """
     清空稍后再看列表
 
@@ -1027,7 +1171,7 @@ async def clear_toview_list(credential: Credential = None):
     return await request("POST", api["url"], credential=credential)
 
 
-async def delete_viewed_videos_from_toview(credential: None):
+async def delete_viewed_videos_from_toview(credential: Credential):
     """
     删除稍后再看列表已经看过的视频
 
@@ -1044,7 +1188,7 @@ async def delete_viewed_videos_from_toview(credential: None):
     return await request("POST", api["url"], credential=credential, data=datas)
 
 
-async def check_nickname(nick_name: str = None):
+async def check_nickname(nick_name: str):
     """
     检验昵称是否可用
 
@@ -1064,13 +1208,13 @@ async def check_nickname(nick_name: str = None):
         return True, ""
 
 
-async def get_self_events(ts: int = 0, credential: Credential = None):
+async def get_self_events(ts: int = 0, credential: Union[Credential, None] = None):
     """
     获取自己入站后每一刻的事件
 
     Args:
-        ts(int, optional)               : 时间戳. Defaults to 0.
-        credential(Credential, optional): 凭据. Defaults to None.
+        ts(int, optional)                      : 时间戳. Defaults to 0.
+        credential(Credential | None, optional): 凭据. Defaults to None.
 
     Returns:
         dict: 调用 API 返回的结果
@@ -1078,4 +1222,48 @@ async def get_self_events(ts: int = 0, credential: Credential = None):
     credential = credential if credential else Credential()
     api = API["info"]["events"]
     params = {"ts": ts}
+    return await request("GET", api["url"], params=params, credential=credential)
+
+async def get_self_notes_info(page_num: int , page_size: int, credential: Credential) -> dict:
+    """
+    获取自己的笔记列表
+
+    Args:
+        page_num: 页码
+        page_size: 每页项数
+        credential(Credential): 凭据类
+
+    Returns:
+        dict: 调用 API 返回的结果
+    """
+
+    assert page_num > 0
+    assert page_size > 0
+
+    credential.raise_for_no_sessdata()
+
+    api = API["info"]["all_notes"]
+    params = {"pn": page_num, "ps": page_size}
+    return await request("GET", api["url"], params=params, credential=credential)
+
+async def get_self_public_notes_info(page_num: int , page_size: int, credential: Credential) -> dict:
+    """
+    获取自己的公开笔记列表
+
+    Args:
+        page_num: 页码
+        page_size: 每页项数
+        credential(Credential): 凭据类
+
+    Returns:
+        dict: 调用 API 返回的结果
+    """
+
+    assert page_num > 0
+    assert page_size > 0
+
+    credential.raise_for_no_sessdata()
+
+    api = API["info"]["public_notes"]
+    params = {"pn": page_num, "ps": page_size}
     return await request("GET", api["url"], params=params, credential=credential)

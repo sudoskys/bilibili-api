@@ -109,10 +109,10 @@ from bilibili_api import user
 
 合集与列表类型
 
-+ SERIES: 旧版
-+ SEASON: 新版
++ SERIES: 相同视频分类
++ SEASON: 新概念多 P
 
-**新版合集名字为`合集·XXX`，请注意区别**
+**SEASON 类合集与列表名字为`合集·XXX`，请注意区别**
 
 ---
 
@@ -136,7 +136,7 @@ from bilibili_api import user
 
 | name | type | description |
 | ---- | ---- | ----------- |
-| credential | Credential | 凭据 |
+| credential | Credential \| None | 凭据 |
 
 ### Functions
 
@@ -408,6 +408,22 @@ from bilibili_api import user
 
 ---
 
+## async def edit_user_info()
+
+| name       | type       | description |
+|------------|------------|-------------|
+| birthday   | str        | 生日 YYYY-MM-DD|
+| sex        | str        | 性别 男、女或保密 |
+| uname      | str        | 昵称          |
+| usersign   | str        | 个性签名       |
+| credential | Credential | 凭据           |
+
+修改自己的信息
+
+**Returns:** 调用接口返回的内容。
+
+---
+
 ## class ChannelSeries
 
 合集与列表类
@@ -421,7 +437,7 @@ from bilibili_api import user
 | uid | int | 用户 uid |
 | type_ | ChannelSeriesType | 合集与列表的类型，分旧版和新版 |
 | id_ | int | season_id 或 series_id |
-| credential | Credential | 凭据类 |
+| credential | Credential \| None | 凭据类 |
 
 #### def get_meta()
 
@@ -497,7 +513,7 @@ from bilibili_api import user
 | ------------- | ------------- | ----------------------------------- |
 | page_num      | int, optional | 页码数. Defaults to 1               |
 | per_page_item | int, optional | 每页多少条历史记录, Defaults to 100 |
-| credential    | Credential    | 凭据                                |
+| credential    | Credential \| None    | 凭据                                |
 
 获取用户浏览历史记录
 
@@ -561,7 +577,7 @@ from bilibili_api import user
 
 获取自己的电磁力等级
 
-**Returns:** tuple[bool, str]: 第一项为昵称是否可用，第二项为不可用的原因。
+**Returns:** Tuple[bool, str]: 第一项为昵称是否可用，第二项为不可用的原因。
 
 ---
 
@@ -570,8 +586,93 @@ from bilibili_api import user
 | name | type | description |
 | - | - | - |
 | ts | int, optional | 时间戳. Defaults to 0 |
-| credential | Credential, optional | 凭据类. Defaults to None |
+| credential | Credential | None, optional | 凭据类. Defaults to None |
 
 获取自己入站后每一刻的事件(可以不带 credential)
+
+**Returns:** dict: 调用 API 返回的结果
+
+---
+
+## async def get_self_notes_info()
+
+| name | type | description |
+| - | - | - |
+| page_num | int | 页码 |
+| page_size | int | 每页项数 |
+| credential | Credential | 凭据类 |
+
+获取自己的笔记列表
+
+**Returns:** dict: 调用 API 返回的结果
+
+---
+
+## async def get_self_public_notes_info()
+
+| name | type | description |
+| - | - | - |
+| page_num | int | 页码 |
+| page_size | int | 每页项数 |
+| credential | Credential | 凭据类 |
+
+获取自己的公开笔记列表
+
+**Returns:** dict: 调用 API 返回的结果
+
+---
+
+## async def create_channel_series()
+
+| name | type | description |
+| - | - | - |
+| name | str | 列表名称 |
+| aids | List[int] | 要加入列表的视频的 aid 列表 |
+| keywords | List[str] | 列表的关键词 |
+| description | str | 列表的描述 |
+| credential | Credential \| None | 凭据类 |
+
+新建一个视频列表 (旧版合集)
+
+**Returns:** dict: 调用 API 返回的结果
+
+---
+
+## async def del_channel_series()
+
+| name | type | description |
+| - | - | - |
+| series_id | int | 旧版合集 id |
+| credential | Credential | 凭据类 |
+
+删除视频列表(旧版合集)
+
+**Returns:** dict: 调用 API 返回的结果
+
+---
+
+## async def add_aids_to_series()
+
+| name | type | description |
+| - | - | - |
+| series_id | int | 旧版合集 id |
+| aids | List[int] | 视频 aid 列表 |
+| credential | Credential | 凭据类 |
+
+添加视频至视频列表(旧版合集)
+
+**Returns:** dict: 调用 API 返回的结果
+
+---
+
+## async def del_aids_from_series()
+
+| name | type | description |
+| - | - | - |
+| series_id | int | 旧版合集 id |
+| aids | List[int] | 视频 aid 列表 |
+| credential | Credential | 凭据类 |
+
+从视频列表(旧版合集)删除视频
 
 **Returns:** dict: 调用 API 返回的结果

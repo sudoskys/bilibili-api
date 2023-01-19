@@ -109,6 +109,77 @@ import bilibili_api
 
 ---
 
+**@dataclasses.dataclass**
+## class Picture
+
+图片类，包含图片链接、尺寸以及下载操作。
+
+Args:
+    height    (int)  : 高度           
+    imageType (str)  : 格式，例如: png
+    size      (Any)  : 尺寸           
+    url       (str)  : 图片链接        
+    width     (int)  : 宽度           
+    content   (bytes): 图片内容   
+
+可以不实例化，用 `from_url` 或 `from_file` 加载。
+
+### Functions
+
+**@staticmethod**
+#### def from_url
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| url  | str  | 图片链接。   |
+
+加载网络图片。
+
+**Returns:** Picture: 加载后的图片对象。
+
+**@staticmethod**
+#### def from_file
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| path | str  | 图片地址。   |
+
+加载本地图片。
+
+**Returns:** Picture: 加载后的图片对象。
+
+#### async def upload_file()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| credential | Credential | 凭据类。 |
+
+上传图片至 B 站。
+
+**Returns:** Picture: `self`
+
+#### def convert_format()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| new_format | str | 新的格式。例：`png`, `ico`, `webp`. |
+
+将图片转换为另一种格式。
+
+**Returns:** Picture: `self`
+
+#### async def download()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| path | str  | 下载地址。    |
+
+下载图片至本地。
+
+**Returns:** Picture: `self`
+
+---
+
 ## def sync()
 
 | name      | type      | description |
@@ -204,10 +275,9 @@ BV 号转 AV 号。
 - 直播间
 - 合集与列表
 - 游戏
+- 话题
 
-[查看示例](https://nemo2011.github.io/bilibili-api/#/parse_link)
-
-**Returns:** `Union[tuple[Any, ResourceType], int]`:如果成功返回元组，失败返回 `-1`。
+**Returns:** `Tuple[obj, ResourceType]`: 第一项为返回对象，第二项为对象类型。
 
 **元组第一项是资源对象，第二项是资源类型**
 
@@ -270,7 +340,7 @@ BV 号转 AV 号。
 | text      | str                  | 弹幕文本。                                                  |
 | dm_time   | float, optional      | 弹幕在视频中的位置，单位为秒。Defaults to 0.0.              |
 | send_time | float, optional      | 弹幕发送的时间。Defaults to time.time().                    |
-| crc32_id  | str, optional        | 弹幕发送者 UID 经 CRC32 算法取摘要后的值。Defaults to None. |
+| crc32_id  | str, optional        | 弹幕发送者 UID 经 CRC32 算法取摘要后的值。Defaults to "". |
 | color     | str, optional        | 弹幕十六进制颜色。Defaults to "ffffff".                     |
 | weight    | int, optional        | 弹幕在弹幕列表显示的权重。Defaults to -1.                   |
 | id_       | int, optional        | 弹幕 ID。Defaults to -1.                                    |
@@ -353,3 +423,57 @@ BV 号转 AV 号。
 | credential | Credential     | 凭据 |
 
 **Returns:** 对应资源或 -1 (无匹配资源)
+
+---
+
+## class AsyncEvent
+
+发布-订阅模式异步事件类支持。
+
+特殊事件：\_\_ALL\_\_ 所有事件均触发
+
+### Functions
+
+#### def add_eevent_listener()
+
+| name | type | description |
+| - | - | - |
+| name | str |           事件名。 |
+| handler | Coroutine |   回调异步函数。 |
+
+注册事件监听器。
+
+#### def on()
+
+装饰器注册事件监听器。
+
+| name | type | description |
+| - | - | - |
+| event_name | str | 事件名。 |
+
+#### def remove_all_event_listener()
+
+移除所有事件监听函数
+
+#### def remove_event_listener()
+
+移除事件监听函数。
+
+| name | type | description |
+| - | - | - |
+| name | str |            事件名 |
+| handler | Coroutine |   要移除的函数 |
+
+**Returns:** bool, 是否移除成功。
+
+#### def ignore_event()
+
+忽略指定事件
+
+| name | type | description |
+| - | - | - |
+| name | str | 事件名 |
+
+#### def remove_ignore_events()
+
+移除所有忽略事件

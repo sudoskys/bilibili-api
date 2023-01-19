@@ -7,8 +7,12 @@ import asyncio
 from asyncio.exceptions import CancelledError
 from asyncio.tasks import Task, create_task
 import os
-from . import settings
+import time
+
+from .video import Video
+from .utils.aid_bvid_transformer import bvid2aid
 from .utils.Credential import Credential
+from .utils.Picture import Picture
 from copy import copy, deepcopy
 from .exceptions.ResponseCodeException import ResponseCodeException
 import json
@@ -16,15 +20,11 @@ from enum import Enum
 
 from .exceptions.ApiException import ApiException
 from .exceptions.NetworkException import NetworkException
-from typing import TypedDict, List
-from hashlib import md5
-import base64
-from urllib.parse import quote_plus
-import mimetypes
+from typing import List, Union
 
 from .utils.AsyncEvent import AsyncEvent
-from .utils.network_httpx import get_session, request, to_form_urlencoded
-from .utils.utils import chunk, get_api
+from .utils.network_httpx import get_session, request
+from .utils.utils import get_api
 
 from .dynamic import upload_image
 
@@ -49,7 +49,7 @@ class VideoUploaderPage:
         self.title: str = title
         self.description: str = description
 
-        self.cached_size: int = None
+        self.cached_size: Union[int, None] = None
 
     def get_size(self) -> int:
         """
@@ -133,6 +133,12 @@ class VideoUploaderEvents(Enum):
 class VideoUploader(AsyncEvent):
     """
     视频上传
+
+    Attributes:
+        pages        (List[VideoUploaderPage]): 分 P 列表
+        meta         (dict)                   : 视频信息
+        credential   (Credential)             : 凭据
+        cover_path   (str)                    : 封面路径
     """
 
     def __init__(
@@ -140,7 +146,7 @@ class VideoUploader(AsyncEvent):
         pages: List[VideoUploaderPage],
         meta: dict,
         credential: Credential,
-        cover_path: str = None,
+        cover: Union[str, Picture] = "",
         #  ffprobe_path: str = 'ffprobe'
     ):
         """
@@ -148,7 +154,7 @@ class VideoUploader(AsyncEvent):
             pages        (List[VideoUploaderPage]): 分 P 列表
             meta         (dict)                   : 视频信息
             credential   (Credential)             : 凭据
-            cover_path   (str)                    : 封面路径
+            cover        (str | Picture)          : 封面路径 / Picture 对象
 
         meta 参数示例：
 
@@ -192,9 +198,9 @@ class VideoUploader(AsyncEvent):
         self.meta = meta
         self.pages = pages
         self.credential = credential
-        self.cover_path = cover_path
+        self.cover_path = cover
         # self.ffprobe_path = ffprobe_path
-        self.__task: Task = None
+        self.__task: Union[Task, None] = None
 
     async def _preupload(self, page: VideoUploaderPage) -> dict:
         """
@@ -398,8 +404,8 @@ class VideoUploader(AsyncEvent):
                 {
                     "title": page.title,
                     "desc": page.description,
-                    "filename": data["filename"],
-                    "cid": data["cid"],
+                    "filename": data["filename"], # type: ignore
+                    "cid": data["cid"], # type: ignore
                 }
             )
 
@@ -413,7 +419,7 @@ class VideoUploader(AsyncEvent):
         self.dispatch(VideoUploaderEvents.COMPLETED.value, result)
         return result
 
-    async def start(self) -> dict:
+    async def start(self) -> dict: # type: ignore
         """
         开始上传
 
@@ -432,6 +438,7 @@ class VideoUploader(AsyncEvent):
             # 忽略 task 取消异常
             pass
         except Exception as e:
+            self.dispatch(VideoUploaderEvents.FAILED.value, {"err": e})
             raise e
 
     async def _upload_cover(self) -> str:
@@ -443,14 +450,15 @@ class VideoUploader(AsyncEvent):
         """
         self.dispatch(VideoUploaderEvents.PRE_COVER.value, None)
         try:
-            resp = await upload_image(open(self.cover_path, "rb").read(), self.credential)
+            pic = self.cover_path if isinstance(self.cover_path, Picture) else Picture().from_file(self.cover_path)
+            resp = await upload_image(pic, self.credential)
             self.dispatch(VideoUploaderEvents.AFTER_COVER.value, {"url": resp["image_url"]})
             return resp["image_url"]
         except Exception as e:
             self.dispatch(VideoUploaderEvents.COVER_FAILED.value, {"err": e})
             raise e
 
-    async def _upload_page(self, page: VideoUploaderPage) -> str:
+    async def _upload_page(self, page: VideoUploaderPage) -> dict:
         """
         上传分 P
 
@@ -588,7 +596,7 @@ class VideoUploader(AsyncEvent):
         try:
             resp = await session.put(
                 url,
-                data=chunk,
+                data=chunk, # type: ignore
                 params=params,
                 headers={"x-upos-auth": preupload["auth"]},
             )
@@ -622,7 +630,7 @@ class VideoUploader(AsyncEvent):
 
     async def _complete_page(
         self, page: VideoUploaderPage, chunks: int, preupload: dict, upload_id: str
-    ) -> None:
+    ) -> dict:
         """
         提交分 P 上传
 
@@ -657,7 +665,7 @@ class VideoUploader(AsyncEvent):
 
         resp = await session.post(
             url=url,
-            data=json.dumps(data),
+            data=json.dumps(data), # type: ignore
             headers={
                 "x-upos-auth": preupload["auth"],
                 "content-type": "application/json; charset=UTF-8",
@@ -735,7 +743,7 @@ class VideoUploader(AsyncEvent):
         self.dispatch(VideoUploaderEvents.ABORTED.value, None)
 
 
-async def get_missions(tid: int = 0, credential: Credential = None):
+async def get_missions(tid: int = 0, credential: Union[Credential, None] = None):
     """
     获取活动信息
 
@@ -751,3 +759,192 @@ async def get_missions(tid: int = 0, credential: Credential = None):
     params = {"tid": tid}
 
     return await request("GET", api["url"], params=params, credential=credential)
+
+class VideoEditorEvents(Enum):
+    """
+    视频稿件编辑事件枚举
+
+    + PRELOAD       : 加载数据前
+    + AFTER_PRELOAD : 加载成功
+    + PRELOAD_FAILED: 加载失败
+    + PRE_COVER     : 上传封面前
+    + AFTER_COVER   : 上传封面后
+    + COVER_FAILED  : 上传封面失败
+    + PRE_SUBMIT    : 提交前
+    + AFTER_SUBMIT  : 提交后
+    + SUBMIT_FAILED : 提交失败
+    + COMPLETED     : 完成
+    + ABOTRED       : 停止
+    + FAILED        : 失败
+    """
+    PRELOAD = "PRELOAD"
+    AFTER_PRELOAD = "AFTER_PRELOAD"
+    PRELOAD_FAILED = "PRELOAD_FAILED"
+
+    PRE_COVER = "PRE_COVER"
+    AFTER_COVER = "AFTER_COVER"
+    COVER_FAILED = "COVER_FAILED"
+
+    PRE_SUBMIT = "PRE_SUBMIT"
+    SUBMIT_FAILED = "SUBMIT_FAILED"
+    AFTER_SUBMIT = "AFTER_SUBMIT"
+
+    COMPLETED = "COMPLETE"
+    ABORTED = "ABORTED"
+    FAILED = "FAILED"
+
+class VideoEditor(AsyncEvent):
+    """
+    视频稿件编辑
+
+    Attributes:
+        bvid (str)             : 稿件 BVID
+        meta (dict)            : 视频信息
+        cover_path (str)       : 封面路径. Defaults to None(不更换封面). 
+        credential (Credential): 凭据类. Defaults to None. 
+    """
+    def __init__(self, bvid: str, meta: dict, cover: Union[str, Picture] = "", credential: Union[Credential, None] = None):
+        """
+        Args:
+            bvid (str)                    : 稿件 BVID
+            meta (dict)                   : 视频信息
+            cover (str | Picture)         : 封面地址. Defaults to None(不更改封面). 
+            credential (Credential | None): 凭据类. Defaults to None. 
+
+        meta 参数示例: (保留 video, cover, tid, aid 字段)
+
+        ``` json
+        {
+            "title": "str: 标题",
+            "copyright": "int: 是否原创，0 否 1 是",
+            "tag": "标签. 用,隔开. ",
+            "desc_format_id": "const int: 0",
+            "desc": "str: 描述",
+            "dynamic": "str: 动态信息",
+            "interactive": "const int: 0",
+            "new_web_edit": "const int: 1",
+            "act_reserve_create": "const int: 0",
+            "handle_staff": "const bool: false",
+            "topic_grey": "const int: 1",
+            "no_reprint": "int: 是否显示“未经允许禁止转载”. 0 否 1 是",
+            "subtitles # 字幕设置": {
+                "lan": "str: 字幕投稿语言，不清楚作用请将该项设置为空",
+                "open": "int: 是否启用字幕投稿，1 or 0"
+            },
+            "web_os": "const int: 2"
+        }
+        ```
+        """
+        super().__init__()
+        self.bvid = bvid
+        self.meta = meta
+        self.credential = credential if credential else Credential()
+        self.cover_path = cover
+        self.__old_configs = {}
+        self.meta["aid"] = bvid2aid(bvid)
+        self.__task: Union[Task, None] = None
+
+    async def _fetch_configs(self):
+        """
+        在本地缓存原来的上传信息
+        """
+        self.dispatch(VideoEditorEvents.PRELOAD.value)
+        try:
+            api = _API["upload_args"]
+            params = {
+                "bvid": self.bvid
+            }
+            self.__old_configs = await request("GET", api["url"], params = params, credential = self.credential)
+        except Exception as e:
+            self.dispatch(VideoEditorEvents.PRELOAD_FAILED.value, {"err", e})
+            raise e
+        self.dispatch(VideoEditorEvents.AFTER_PRELOAD.value, {"data": self.__old_configs})
+
+    async def _change_cover(self) -> None:
+        """
+        更换封面
+
+        Returns:
+            None
+        """
+        if self.cover_path == "":
+            return
+        self.dispatch(VideoEditorEvents.PRE_COVER.value, None)
+        try:
+            pic = self.cover_path if isinstance(self.cover_path, Picture) else Picture().from_file(self.cover_path)
+            resp = await upload_image(pic, self.credential)
+            self.dispatch(VideoEditorEvents.AFTER_COVER.value, {"url": resp["image_url"]})
+            self.meta["cover"] = resp["image_url"]
+        except Exception as e:
+            self.dispatch(VideoEditorEvents.COVER_FAILED.value, {"err": e})
+            raise e
+
+    async def _submit(self):
+        api = _API["edit"]
+        datas = self.meta
+        datas["csrf"] = self.credential.bili_jct
+        self.dispatch(VideoEditorEvents.PRE_SUBMIT.value)
+        try:
+            resp = await request(
+                "POST", 
+                api["url"], 
+                params = {"csrf": self.credential.bili_jct, "t": int(time.time())}, 
+                data = json.dumps(datas), 
+                headers = {
+                    "content-type": "application/json;charset=UTF-8", 
+                    "referer": "https://member.bilibili.com",
+                    "user-agent": "Mozilla/5.0"
+                }, 
+                credential = self.credential, 
+                no_csrf = True
+            )
+            self.dispatch(VideoEditorEvents.AFTER_SUBMIT.value, resp)
+        except Exception as e:
+            self.dispatch(VideoEditorEvents.SUBMIT_FAILED.value, {"err", e})
+            raise e
+
+    async def _main(self) -> dict:
+        await self._fetch_configs()
+        self.meta["videos"] = []
+        cnt = 0
+        for v in self.__old_configs["videos"]:
+            self.meta["videos"].append({"title": v["title"], "desc": v["desc"], "filename": v["filename"]})
+            self.meta["videos"][-1]["cid"] = await Video(self.bvid).get_cid(cnt)
+            cnt += 1
+        self.meta["cover"] = self.__old_configs["archive"]["cover"]
+        self.meta["tid"] = self.__old_configs["archive"]["tid"]
+        await self._change_cover()
+        await self._submit()
+        self.dispatch(VideoEditorEvents.COMPLETED.value)
+        return {"bvid": self.bvid}
+
+    async def start(self) -> dict: # type: ignore
+        """
+        开始更改
+
+        Returns:
+            dict: 返回带有 bvid 和 aid 的字典。
+        """
+
+        task = create_task(self._main())
+        self.__task = task
+
+        try:
+            result = await task
+            self.__task = None
+            return result
+        except CancelledError:
+            # 忽略 task 取消异常
+            pass
+        except Exception as e:
+            self.dispatch(VideoEditorEvents.FAILED.value, {"err": e})
+            raise e
+
+    async def abort(self):
+        """
+        中断更改
+        """
+        if self.__task:
+            self.__task.cancel("用户手动取消")
+
+        self.dispatch(VideoEditorEvents.ABORTED.value, None)

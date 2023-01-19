@@ -80,10 +80,10 @@ Web 端视频上传。
 
 | name         | type                    | description                                                  |
 | ------------ | ----------------------- | ------------------------------------------------------------ |
-| pages        | list[VideoUploaderPage] | 分 P 列表                                                    |
+| pages        | List[VideoUploaderPage] | 分 P 列表                                                    |
 | meta         | dict                    | 视频信息                                                     |
 | credential   | VideoUploaderCredential | 凭据（注意，是 VideoUploaderCredential）                     |
-| cover_path | str          | 路径                                                      |
+| cover | str \| Picture          | 路径                                                      |
 
 **meta 参数示例：**
 
@@ -134,13 +134,94 @@ meta 保留字段：`videos`, `cover`
 
 中断上传
 
+---
+
 ## async def get_missions()
 
 | name       | type                 | description             |
 | ---------- | -------------------- | ----------------------- |
 | tid        | int, optional        | 分区 ID. Defaults to 0. |
-| credential | Credential, optional | 凭据. Defaults to None. |
+| credential | Credential \| None, optional | 凭据. Defaults to None. |
 
 获取活动信息
 
 **Returns:** dict: API 调用返回结果
+
+---
+
+## class VideoEditorEvents
+
+**Extends: enum.Enum**
+
++ PRELOAD       : 加载数据前
++ AFTER_PRELOAD : 加载成功
++ PRELOAD_FAILED: 加载失败
++ PRE_COVER     : 上传封面前
++ AFTER_COVER   : 上传封面后
++ COVER_FAILED  : 上传封面失败
++ PRE_SUBMIT    : 提交前
++ AFTER_SUBMIT  : 提交后
++ SUBMIT_FAILED : 提交失败
++ COMPLETED     : 完成
++ ABOTRED       : 停止
++ FAILED        : 失败
+
+---
+
+## class VideoEditor
+
+**Extends: AsyncEvent**
+
+### Attributes
+
+| name | type | description |
+| - | - | - |
+| bvid | str | 稿件 BVID |
+| meta | dict | 视频信息 |
+| cover_path | str | 封面路径. Defaults to None(不更换封面).  |
+| credential | Credential \| None | 凭据类. Defaults to None.  |
+
+### Functions
+
+#### def \_\_init\_\_()
+
+| name | type | description |
+| - | - | - |
+| bvid | str | 稿件 BVID |
+| meta | dict | 视频信息 |
+| cover | str \| Picture | 封面路径. Defaults to None(不更换封面).  |
+| credential | Credential | 凭据类. Defaults to None.  |
+
+meta 参数示例: (保留 video, cover, tid, aid 字段)
+
+``` json
+{
+    "title": "str: 标题",
+    "copyright": "int: 是否原创，0 否 1 是",
+    "tag": "标签. 用,隔开. ",
+    "desc_format_id": "const int: 0",
+    "desc": "str: 描述",
+    "dynamic": "str: 动态信息",
+    "interactive": "const int: 0",
+    "new_web_edit": "const int: 1",
+    "act_reserve_create": "const int: 0",
+    "handle_staff": "const bool: false",
+    "topic_grey": "const int: 1",
+    "no_reprint": "int: 是否显示“未经允许禁止转载”. 0 否 1 是",
+    "subtitles # 字幕设置": {
+        "lan": "str: 字幕投稿语言，不清楚作用请将该项设置为空",
+        "open": "int: 是否启用字幕投稿，1 or 0"
+    },
+    "web_os": "const int: 2"
+}
+```
+
+#### async def start()
+
+开始更改
+
+**Returns:** dict: 返回带有 bvid 和 aid 的字典。
+
+#### async def abort()
+
+中断更改

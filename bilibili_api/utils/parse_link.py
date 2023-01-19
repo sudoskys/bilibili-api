@@ -7,6 +7,7 @@ bilibili_api.utils.parse_link
 import json
 import re
 from enum import Enum
+from typing import Literal, Tuple, Union
 
 import httpx
 
@@ -14,10 +15,10 @@ from ..article import Article, ArticleList
 from ..audio import Audio, AudioList
 from ..bangumi import Bangumi, Episode
 from ..black_room import BlackRoom
-from ..cheese import CheeseList, CheeseVideo
+from ..cheese import CheeseVideo
 from ..dynamic import Dynamic
 from ..exceptions import *
-from ..favorite_list import FavoriteList, FavoriteListType, get_video_favorite_list
+from ..favorite_list import FavoriteList, FavoriteListType
 from ..interactive_video import InteractiveVideo
 from ..live import LiveRoom
 from ..user import ChannelSeries, ChannelSeriesType, User, get_self_info
@@ -27,6 +28,7 @@ from .Credential import Credential
 from .short import get_real_url
 from .sync import sync
 from .utils import get_api
+from ..topic import Topic
 
 
 class ResourceType(Enum):
@@ -47,6 +49,8 @@ class ResourceType(Enum):
     + CHANNEL_SERIES: 合集与列表
     + BLACK_ROOM: 小黑屋
     + GAME: 游戏
+    + TOPIC: 话题
+    + FAILED: 错误
     """
 
     VIDEO = "video"
@@ -65,9 +69,33 @@ class ResourceType(Enum):
     DYNAMIC = "dynamic"
     BLACK_ROOM = "black_room"
     GAME = "game"
+    TOPIC = "topic"
+    FAILED = "failed"
 
 
-async def parse_link(url, credential: Credential = None):
+async def parse_link(
+    url: str, 
+    credential: Union[Credential, None] = None
+) -> Union[
+    Tuple[Video, Literal[ResourceType.VIDEO]], 
+    Tuple[InteractiveVideo, Literal[ResourceType.INTERACTIVE_VIDEO]], 
+    Tuple[Bangumi, Literal[ResourceType.BANGUMI]], 
+    Tuple[Episode, Literal[ResourceType.EPISODE]], 
+    Tuple[FavoriteList, Literal[ResourceType.FAVORITE_LIST]], 
+    Tuple[CheeseVideo, Literal[ResourceType.CHEESE_VIDEO]], 
+    Tuple[Audio, Literal[ResourceType.AUDIO]], 
+    Tuple[AudioList, Literal[ResourceType.AUDIO_LIST]], 
+    Tuple[Article, Literal[ResourceType.ARTICLE]], 
+    Tuple[User, Literal[ResourceType.USER]], 
+    Tuple[LiveRoom, Literal[ResourceType.LIVE]], 
+    Tuple[ChannelSeries, Literal[ResourceType.CHANNEL_SERIES]], 
+    Tuple[ArticleList, Literal[ResourceType.ARTICLE_LIST]], 
+    Tuple[Dynamic, Literal[ResourceType.DYNAMIC]], 
+    Tuple[BlackRoom, Literal[ResourceType.BLACK_ROOM]], 
+    Tuple[Game, Literal[ResourceType.GAME]], 
+    Tuple[Topic, Literal[ResourceType.TOPIC]], 
+    Tuple[Literal[-1], Literal[ResourceType.FAILED]]
+]:
     """
     解析 bilibili url 的函数。
 
@@ -76,9 +104,9 @@ async def parse_link(url, credential: Credential = None):
         credential(Credential): 凭据类
 
     Returns:
-        Union[tuple, int]: (对象，类型) 或 -1,-1 表示出错
+        Tuple[obj, ResourceType]: (对象，类型) 或 -1,-1 表示出错
     """
-    credential = credential if credential else Credential
+    credential = credential if credential else Credential()
     try:
         obj = None
 
@@ -94,7 +122,7 @@ async def parse_link(url, credential: Credential = None):
 
         url = await get_real_url(url)
 
-        # 特殊处理，因为后面会过滤参数，这两项需要参数完成
+        # 特殊处理，因为后面会过滤参数，这几项需要参数完成
         channel = parse_season_series(url)
         if channel != -1:
             return (channel, ResourceType.CHANNEL_SERIES)
@@ -105,6 +133,10 @@ async def parse_link(url, credential: Credential = None):
         if game != -1:
             game.credential = credential
             return (game, ResourceType.GAME)
+        topic = parse_topic(url)
+        if topic != -1:
+            topic.credential = credential
+            return (topic, ResourceType.TOPIC)
 
         # 过滤参数
         url = url.split("?")[0]
@@ -112,7 +144,7 @@ async def parse_link(url, credential: Credential = None):
             try:
                 info = sync(get_self_info(credential))
             except:
-                return -1
+                return (-1, ResourceType.FAILED)
             else:
                 return (User(info["mid"], credential=credential), ResourceType.USER)
         obj = None
@@ -157,12 +189,12 @@ async def parse_link(url, credential: Credential = None):
             obj = (dynamic, ResourceType.DYNAMIC)
 
         if obj == None or obj[0] == None:
-            return -1
+            return (-1, ResourceType.FAILED)
         else:
             obj[0].credential = credential
-            return obj
+            return obj # type: ignore
     except Exception as e:
-        return -1
+        return (-1, ResourceType.FAILED)
 
 
 def check_short_name(name: str, credential: Credential):
@@ -519,5 +551,14 @@ def parse_black_room(url: str):
 def parse_game(url: str):
     if url[:36] == "https://www.biligame.com/detail/?id=":
         return Game(int(url[36:]))
+    else:
+        return -1
+
+
+def parse_topic(url: str):
+    if url[:50] == "https://www.bilibili.com/v/topic/detail/?topic_id=":
+        return Topic(
+            int(url[50:].split("&")[0])
+        )
     else:
         return -1

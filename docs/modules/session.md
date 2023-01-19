@@ -43,43 +43,28 @@ from bilibili_api import session
 
 #### async def send_msg()
 
-| name        | type       | description |
-| ----------- | ---------- | ----------- |
-| credential  | Credential | 凭证        |
-| receiver_id | int        | 接收者 UID  |
-| text        | str        | 信息内容。  |
+| name        | type          | description |
+| ----------- | ------------- | ----------- |
+| credential  | Credential    | 凭证        |
+| receiver_id | int           | 接收者 UID  |
+| msg_type    | str           | 信息类型    |
+| content     | str 或 Picture | 信息内容。  |
 
-给用户发送私聊信息。目前仅支持纯文本。
+给用户发送私聊信息。目前支持纯文本、图片、撤回。
 
 **Returns:** dict: 调用 API 返回结果
 
 ---
 
-**@dataclass**
-## class Picture
+#### async def get_likes()
 
-图片类，包含图片链接、尺寸以及下载操作。
+| name | type | description |
+| ---- | ---- | ----------- |
+| credential | Credential | 凭据类 |
 
-### Functions
+获取收到的点赞。
 
-#### def \_\_init\_\_()
-
-| name      | type | description     |
-| --------- | ---- | --------------- |
-| height    | int  | 高度            |
-| imageType | str  | 格式，例如: png |
-| original  | int  | 未知，默认为 1  |
-| size      | str  | 尺寸            |
-| url       | str  | 图片链接        |
-| width     | int  | 宽度            |  
-
-#### async def download()
-
-| name     | type          | description |
-| -------- | ------------- | ----------- |
-| filepath | str, optional | 图片保存路径 |
-
-下载图片
+**Returns:** dict: 调用 API 返回的结果
 
 ---
 
@@ -176,10 +161,10 @@ from bilibili_api import session
 
 #### async def reply()
 
-| name  | type  | description |
-| ----- | ----- | ----------- |
-| event | Event | 要回复的消息 |
-| text  | str   | 回复文字     |
+| name    | type  | description |
+| ------- | ----- | ----------- |
+| event   | Event | 要回复的消息 |
+| content | str 或 Picture | 回复文字或图片 |
 
 快速回复
 

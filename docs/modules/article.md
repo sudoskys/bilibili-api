@@ -12,13 +12,21 @@ from bilibili_api import article
 
 专栏颜色表
 
+## class ArticleType
+
+**Extends:** enum.Enum
+
+- ARTICLE        : 普通专栏
+- NOTE           : 笔记专栏
+- SPECIAL_ARTICLE: 特殊专栏，采用笔记格式
+
 ## class ArticleList
 
 ### Atrributes
 
 | name | type | description |
 | - | - | - |
-| credential | Credential | 凭据类 |
+| credential | Credential \| None | 凭据类 |
 
 ### Functions
 
@@ -27,7 +35,7 @@ from bilibili_api import article
 | name | type | description |
 | - | - | - |
 | rlid       | int                  | 文集 ID，如 https://www.bilibili.com/read/readlist/rl000010 省略前导 0 |
-| credential | Credential, optional | 凭据. Defaults to None.                                      |
+| credential | Credential \| None, optional | 凭据. Defaults to None.                                      |
 
 #### def get_rlid()
 
@@ -60,13 +68,25 @@ from bilibili_api import article
 | name       | type                 | description             |
 | ---------- | -------------------- | ----------------------- |
 | cvid       | int                  | 专栏 ID                 |
-| credential | Credential, optional | 凭据. Defaults to None. |
+| credential | Credential \| None, optional | 凭据. Defaults to None. |
 
 #### def get_rlid()
 
 获取 rlid
 
 **Returns:** rlid
+
+#### def is_note()
+
+专栏是否公开笔记
+
+**Returns:** bool: 是否公开笔记
+
+#### def turn_to_note()
+
+将专栏转换为笔记类（公开笔记）。需要保证专栏是公开笔记。
+
+**Returns:** Note: 笔记类
 
 #### def markdown()
 
@@ -84,11 +104,17 @@ from bilibili_api import article
 
 **Returns:** dict: JSON 数据
 
+#### async def to_note()
+
+转换为 Note 类
+
+请确保是此专栏是笔记
+
+**Returns:** Note: Note 类
+
 #### async def fetch_content()
 
-获取并解析专栏内容
-
-该返回不会返回任何值，调用该方法后请再调用 `self.markdown()` 或 `self.json() `来获取你需要的值。
+加载专栏内容。该方法不会返回任何值，调用该方法后请再调用 `self.markdown()` 或 `self.json() `来获取你需要的值。
 
 **Returns:** None
 
@@ -103,6 +129,12 @@ from bilibili_api import article
 一次性获取专栏尽可能详细数据，包括原始内容、标签、发布时间、标题、相关专栏推荐等		。
 
 **Returns:** API 调用返回结果。
+
+#### def get_type()
+
+获取专栏类型。
+
+**Returns:** ArticleType: 专栏类型
 
 #### async def set_like()
 
@@ -129,4 +161,3 @@ from bilibili_api import article
 给专栏投币，目前只能投一个
 
 **Returns:** API 调用返回结果。
-

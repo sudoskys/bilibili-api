@@ -1,4 +1,4 @@
-![bilibili-api logo](https://raw.githubusercontent.com/nemo2011/bilibili-api/main/design/logo.png)
+![bilibili-api logo](https://raw.githubusercontent.com/Nemo2011/bilibili-api/main/design/logo-newYear.jpg)
 
 <div align="center">
 
@@ -44,15 +44,13 @@ Gitee 仓库：[https://gitee.com/nemo2011/bilibili-api](https://gitee.com/nemo2
 $ pip3 install bilibili-api-python
 ```
 
-Python3.11 Windows 用户可能会遇到 `lxml` 安装失败的问题，可以直接用[轮子](https://www.lfd.uci.edu/~gohlke/pythonlibs/#lxml)(具体版本参照 `requirements.txt`[(github)](https://github.com/Nemo2011/bilibili-api/blob/main/requirements.txt)[(gitee)](https://gitee.com/nemo2011/bilibili-api/blob/main/requirements.txt))
-
 接下来我们来获取视频的播放量等信息：
 
 ```python
 import asyncio
 from bilibili_api import video
 
-async def main():
+async def main() -> None:
     # 实例化 Video 类
     v = video.Video(bvid="BV1uv411q7Mv")
     # 获取信息
@@ -61,7 +59,7 @@ async def main():
     print(info)
 
 if __name__ == '__main__':
-    asyncio.get_event_loop().run_until_complete(main())
+    asyncio.run(main())
 ```
 
 输出（已格式化，已省略部分）：
@@ -92,7 +90,7 @@ if __name__ == '__main__':
 import asyncio
 from bilibili_api import video, Credential
 
-async def main():
+async def main() -> None:
     # 实例化 Credential 类
     credential = Credential(sessdata=SESSDATA, bili_jct=BILI_JCT, buvid3=BUVID3)
     # 实例化 Video 类
@@ -103,7 +101,7 @@ async def main():
     await v.like(True)
 
 if __name__ == '__main__':
-    asyncio.get_event_loop().run_until_complete(main())
+    asyncio.run(main())
 ```
 
 如果没有报错，就代表调用 API 成功，你可以到视频页面确认是不是调用成功了。
@@ -181,5 +179,5 @@ A: 由于该模块比较特殊，是爬虫模块，如果 b 站的接口变更�
 [api.json]: https://github.com/nemo2011/bilibili-api/tree/main/bilibili_api/data/api/
 [license]: https://github.com/nemo2011/bilibili-api/tree/main/LICENSE
 [stargazers]: https://github.com/nemo2011/bilibili-api/stargazers
-[issues-new]: https://github.com/nemo2011/bilibili-api/issues/new
+[issues-new]: https://github.com/Nemo2011/bilibili-api/issues/new/choose
 [get-credential]: https://nemo2011.github.io/bilibili-api/#/get-credential

@@ -2,10 +2,12 @@
 bilibili_api.utils.aid_bvid_transformer
 
 av 号和 bv 号互转，代码来源：https://www.zhihu.com/question/381784377/answer/1099438784。
+
+此部分代码以 WTFPL 开源。
 """
 
 
-def bvid2aid(bvid: str):
+def bvid2aid(bvid: str) -> int:
     """
     BV 号转 AV 号。
 
@@ -32,7 +34,7 @@ def bvid2aid(bvid: str):
     return dec(bvid)
 
 
-def aid2bvid(aid: int):
+def aid2bvid(aid: int) -> str:
     """
     AV 号转 BV 号。
 

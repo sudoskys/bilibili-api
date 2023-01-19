@@ -1,4 +1,6 @@
 """
+bilibili_api.emoji
+
 表情包相关
 """
 
@@ -8,7 +10,7 @@ from .utils.utils import get_api
 API = get_api("emoji")
 
 
-async def get_emoji_list(business: str = "reply"):
+async def get_emoji_list(business: str = "reply") -> dict:
     """
     获取表情包列表
 

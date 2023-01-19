@@ -1,4 +1,6 @@
 """
+bilibili_api.dynamic
+
 动态相关
 """
 
@@ -6,19 +8,19 @@ import re
 import json
 import datetime
 import asyncio
-from typing import List
-import io
+from typing import Any, List, Tuple, Union
 
 from .exceptions.DynamicExceedImagesException import DynamicExceedImagesException
 from .utils.network_httpx import request
 from .utils.Credential import Credential
 from . import user, exceptions
 from .utils import utils
+from .utils.Picture import Picture
 
 API = utils.get_api("dynamic")
 
 
-async def _parse_at(text: str):
+async def _parse_at(text: str) -> Tuple[str, str, str]:
     """
     @人格式：“@UID ”(注意最后有空格）
 
@@ -26,7 +28,7 @@ async def _parse_at(text: str):
         text (str): 原始文本
 
     Returns:
-        tuple(str, int[], dict): 替换后文本，解析出艾特的 UID 列表，AT 数据
+        tuple(str, str(int[]), str(dict)): 替换后文本，解析出艾特的 UID 列表，AT 数据
     """
     pattern = re.compile(r"(?<=@)\d*?(?=\s)")
     match_result = re.finditer(pattern, text)
@@ -62,7 +64,7 @@ async def _parse_at(text: str):
     return new_text, at_uids, json.dumps(ctrl, ensure_ascii=False)
 
 
-async def _get_text_data(text: str):
+async def _get_text_data(text: str) -> dict:
     """
     获取文本动态请求参数
 
@@ -85,13 +87,13 @@ async def _get_text_data(text: str):
     return data
 
 
-async def upload_image(image_stream: io.BufferedIOBase, credential: Credential):
+async def upload_image(image: Picture, credential: Credential) -> dict:
     """
     上传动态图片
 
     Args:
-        image_stream (io.BufferedIOBase): 图片流
-        credential   (Credential)       : 凭据
+        image        (Picture)   : 图片流
+        credential   (Credential): 凭据
 
     Returns:
         dict: 调用 API 返回的结果
@@ -101,28 +103,31 @@ async def upload_image(image_stream: io.BufferedIOBase, credential: Credential):
 
     api = API["send"]["upload_img"]
     data = {"biz": "draw", "category": "daily"}
+
+    raw = image.content
+
     return await request(
         "POST",
         url=api["url"],
         data=data,
-        files={"file_up": image_stream},
+        files={"file_up": raw},
         credential=credential,
     )
 
 
 async def _get_draw_data(
-    text: str, image_streams: List[io.BufferedIOBase], credential: Credential
-):
+    text: str, images: List[Picture], credential: Credential
+) -> dict:
     """
     获取图片动态请求参数，将会自动上传图片
 
     Args:
-        text (str): 文本内容
-        image_streams (List[io.BufferedIOBase]): 图片流
+        text   (str)          : 文本内容
+        images (List[Picture]): 图片流
     """
     new_text, at_uids, ctrl = await _parse_at(text)
     images_info = await asyncio.gather(
-        *[upload_image(stream, credential) for stream in image_streams]
+        *[upload_image(stream, credential) for stream in images]
     )
 
     def transformPicInfo(image):
@@ -165,9 +170,9 @@ async def _get_draw_data(
 
 async def send_dynamic(
     text: str,
-    image_streams: List[io.BufferedIOBase] = None,
-    send_time: datetime.datetime = None,
-    credential: Credential = None,
+    images: Union[List[Picture], None] = None,
+    send_time: Union[datetime.datetime, None] = None,
+    credential: Union[Credential, None] = None,
 ):
     """
     自动判断动态类型选择合适的 API 并发送动态
@@ -176,9 +181,9 @@ async def send_dynamic(
 
     Args:
         text          (str)                              : 动态文本
-        image_streams (List[io.BufferedIOBase], optional): 图片流列表. Defaults to None.
-        send_time     (datetime.datetime, optional)      : 定时动态发送时间. Defaults to None.
-        credential    (Credential, optional)             : 凭据. Defaults to None.
+        images        (List[Picture] | None, optional)   : 图片列表. Defaults to None.
+        send_time     (datetime.datetime | None, optional)      : 定时动态发送时间. Defaults to None.
+        credential    (Credential | None, optional)             : 凭据. Defaults to None.
 
     Returns:
         dict: 调用 API 返回的结果
@@ -197,14 +202,14 @@ async def send_dynamic(
 
     async def instant_draw():
         api = API["send"]["instant_draw"]
-        data = await _get_draw_data(text, image_streams, credential)
+        data = await _get_draw_data(text, images, credential) # type: ignore
         return await request("POST", api["url"], data=data, credential=credential)
 
     async def schedule(type_: int):
         api = API["send"]["schedule"]
         if type_ == 2:
             # 画册动态
-            request_data = await _get_draw_data(text, image_streams, credential)
+            request_data = await _get_draw_data(text, images, credential) # type: ignore
             request_data.pop("setting")
         else:
             # 文字动态
@@ -212,15 +217,15 @@ async def send_dynamic(
 
         data = {
             "type": type_,
-            "publish_time": int(send_time.timestamp()),
+            "publish_time": int(send_time.timestamp()), # type: ignore
             "request": json.dumps(request_data, ensure_ascii=False),
         }
         return await request("POST", api["url"], data=data, credential=credential)
 
-    if image_streams is None:
-        image_streams = []
+    if images is None:
+        images = []
 
-    if len(image_streams) == 0:
+    if len(images) == 0:
         # 纯文本动态
         if send_time is None:
             ret = await instant_text()
@@ -228,7 +233,7 @@ async def send_dynamic(
             ret = await schedule(2)
     else:
         # 图片动态
-        if len(image_streams) > 9:
+        if len(images) > 9:
             raise DynamicExceedImagesException()
         if send_time is None:
             ret = await instant_draw()
@@ -240,7 +245,7 @@ async def send_dynamic(
 # 定时动态操作
 
 
-async def get_schedules_list(credential: Credential):
+async def get_schedules_list(credential: Credential) -> dict:
     """
     获取待发送定时动态列表
 
@@ -256,7 +261,7 @@ async def get_schedules_list(credential: Credential):
     return await request("GET", api["url"], credential=credential)
 
 
-async def send_schedule_now(draft_id: int, credential: Credential):
+async def send_schedule_now(draft_id: int, credential: Credential) -> dict:
     """
     立即发送定时动态
 
@@ -274,14 +279,14 @@ async def send_schedule_now(draft_id: int, credential: Credential):
     return await request("POST", api["url"], data=data, credential=credential)
 
 
-async def delete_schedule(draft_id: int, credential: Credential):
+async def delete_schedule(draft_id: int, credential: Credential) -> dict:
     """
     删除定时动态
 
     Args:
         draft_id (int): 定时动态 ID
         credential  (Credential): 凭据
-    
+
     Returns:
         dict: 调用 API 返回的结果
     """
@@ -296,23 +301,23 @@ class Dynamic:
     """
     动态类
 
-    Attributes: 
+    Attributes:
         credential (Credential): 凭据类
     """
 
-    def __init__(self, dynamic_id: int, credential: Credential = None):
+    def __init__(self, dynamic_id: int, credential: Union[Credential, None] = None):
         """
         Args:
-            dynamic_id (int)                 : 动态 ID
-            credential (Credential, optional): 凭据类. Defaults to None.
+            dynamic_id (int)                        : 动态 ID
+            credential (Credential | None, optional): 凭据类. Defaults to None.
         """
         self.__dynamic_id = dynamic_id
         self.credential = credential if credential is not None else Credential()
 
-    def get_dynamic_id(self):
+    def get_dynamic_id(self) -> int:
         return self.__dynamic_id
 
-    async def get_info(self):
+    async def get_info(self) -> dict:
         """
         获取动态信息
 
@@ -330,7 +335,7 @@ class Dynamic:
         data["card"]["extend_json"] = json.loads(data["card"]["extend_json"])
         return data["card"]
 
-    async def get_reposts(self, offset: str = "0"):
+    async def get_reposts(self, offset: str = "0") -> dict:
         """
         获取动态转发列表
 
@@ -341,14 +346,14 @@ class Dynamic:
             dict: 调用 API 返回的结果
         """
         api = API["info"]["repost"]
-        params = {"dynamic_id": self.__dynamic_id}
+        params: dict[str, Any] = {"dynamic_id": self.__dynamic_id}
         if offset != "0":
             params["offset"] = offset
         return await request(
             "GET", api["url"], params=params, credential=self.credential
         )
 
-    async def get_likes(self, pn: int = 1, ps: int = 30):
+    async def get_likes(self, pn: int = 1, ps: int = 30) -> dict:
         """
         获取动态点赞列表
 
@@ -365,13 +370,13 @@ class Dynamic:
             "GET", api["url"], params=params, credential=self.credential
         )
 
-    async def set_like(self, status: bool = True):
+    async def set_like(self, status: bool = True) -> dict:
         """
         设置动态点赞状态
 
         Args:
             status (bool, optional): 点赞状态. Defaults to True.
-        
+
         Returns:
             dict: 调用 API 返回的结果
         """
@@ -390,7 +395,7 @@ class Dynamic:
         }
         return await request("POST", api["url"], data=data, credential=self.credential)
 
-    async def delete(self):
+    async def delete(self) -> dict:
         """
         删除动态
 
@@ -403,13 +408,13 @@ class Dynamic:
         data = {"dynamic_id": self.__dynamic_id}
         return await request("POST", api["url"], data=data, credential=self.credential)
 
-    async def repost(self, text: str = "转发动态"):
+    async def repost(self, text: str = "转发动态") -> dict:
         """
         转发动态
 
         Args:
             text (str, optional): 转发动态时的文本内容. Defaults to "转发动态"
-        
+
         Returns:
             dict: 调用 API 返回的结果
         """
@@ -421,12 +426,12 @@ class Dynamic:
         return await request("POST", api["url"], data=data, credential=self.credential)
 
 
-async def get_new_dynamic_users(credential: Credential = None):
+async def get_new_dynamic_users(credential: Union[Credential, None] = None):
     """
     获取更新动态的关注者
 
     Args:
-        credential (Credential): 凭据类. Defaults to None. 
+        credential (Credential | None): 凭据类. Defaults to None.
 
     Returns:
         dict: 调用 API 返回的结果
@@ -437,13 +442,13 @@ async def get_new_dynamic_users(credential: Credential = None):
     return await request("GET", api["url"], credential = credential)
 
 
-async def get_live_users(size: int = 10, credential: Credential = None):
+async def get_live_users(size: int = 10, credential: Union[Credential, None] = None):
     """
     获取正在直播的关注者
 
     Args:
-        size       (int)       : 获取的数据数量. Defaults to 10. 
-        credential (Credential): 凭据类. Defaults to None. 
+        size       (int)       : 获取的数据数量. Defaults to 10.
+        credential (Credential | None): 凭据类. Defaults to None.
 
     Returns:
         dict: 调用 API 返回的结果

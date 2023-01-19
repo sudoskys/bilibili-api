@@ -1,13 +1,15 @@
-![bilibili-api logo](https://raw.githubusercontent.com/nemo2011/bilibili-api/main/design/logo.png)
+![bilibili-api logo](https://raw.githubusercontent.com/Nemo2011/bilibili-api/main/design/logo-newYear.jpg)
 
 <div align="center">
 
 # bilibili-api
 
 [![API 数量](https://img.shields.io/badge/API%20数量-200+-blue)][api.json]
-[![LICENSE](https://img.shields.io/badge/LICENSE-GPLv3-red)][LICENSE]
+[![LICENSE](https://img.shields.io/badge/LICENSE-GPLv3+-red)][LICENSE]
+[![Python](https://img.shields.io/badge/python-3.11|3.10|3.9|3.8-blue)](https://www.python.org)
+[![Stable Version](https://img.shields.io/pypi/v/bilibili-api-python?label=stable)][pypi]
+[![Pre-release Version](https://img.shields.io/github/v/release/Nemo2011/bilibili-api?label=pre-release&include_prereleases&sort=semver)][pypi]
 [![STARS](https://img.shields.io/github/stars/nemo2011/bilibili-api?color=yellow&label=Github%20Stars)][stargazers]
-![Python](https://img.shields.io/badge/Python-3.11|3.10|3.9|3.8-blue)
 [![Testing](https://github.com/Nemo2011/bilibili-api/actions/workflows/testing.yml/badge.svg)](https://github.com/Nemo2011/bilibili-api/actions/workflows/testing.yml)
 
 </div>
@@ -44,15 +46,13 @@ Gitee 仓库：[https://gitee.com/nemo2011/bilibili-api](https://gitee.com/nemo2
 $ pip3 install bilibili-api-python
 ```
 
-Python3.11 Windows 用户可能会遇到 `lxml` 安装失败的问题，可以直接用[轮子](https://www.lfd.uci.edu/~gohlke/pythonlibs/#lxml)(具体版本参照 `requirements.txt`[(github)](https://github.com/Nemo2011/bilibili-api/blob/main/requirements.txt)[(gitee)](https://gitee.com/nemo2011/bilibili-api/blob/main/requirements.txt))
-
 接下来我们来获取视频的播放量等信息：
 
 ```python
 import asyncio
 from bilibili_api import video
 
-async def main():
+async def main() -> None:
     # 实例化 Video 类
     v = video.Video(bvid="BV1uv411q7Mv")
     # 获取信息
@@ -92,7 +92,7 @@ if __name__ == '__main__':
 import asyncio
 from bilibili_api import video, Credential
 
-async def main():
+async def main() -> None:
     # 实例化 Credential 类
     credential = Credential(sessdata=SESSDATA, bili_jct=BILI_JCT, buvid3=BUVID3)
     # 实例化 Video 类
@@ -181,5 +181,6 @@ A: 由于该模块比较特殊，是爬虫模块，如果 b 站的接口变更�
 [api.json]: https://github.com/nemo2011/bilibili-api/tree/main/bilibili_api/data/api/
 [license]: https://github.com/nemo2011/bilibili-api/tree/main/LICENSE
 [stargazers]: https://github.com/nemo2011/bilibili-api/stargazers
-[issues-new]: https://github.com/nemo2011/bilibili-api/issues/new
+[issues-new]: https://github.com/Nemo2011/bilibili-api/issues/new/choose
 [get-credential]: https://nemo2011.github.io/bilibili-api/#/get-credential
+[pypi]: https://pypi.org/project/bilibili-api-python

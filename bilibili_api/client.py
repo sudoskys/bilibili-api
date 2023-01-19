@@ -1,4 +1,6 @@
 """
+bilibili_api.client
+
 IP 终端相关
 """
 
@@ -8,7 +10,7 @@ from .utils.utils import get_api
 API = get_api("client")
 
 
-async def get_zone():
+async def get_zone() -> dict:
     """
     通过 IP 获取地理位置
     
@@ -19,7 +21,7 @@ async def get_zone():
     return await request("GET", api["url"])
 
 
-async def get_client_info():
+async def get_client_info() -> dict:
     """
     获取 IP 信息
 

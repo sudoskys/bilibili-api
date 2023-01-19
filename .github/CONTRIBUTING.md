@@ -18,7 +18,7 @@
 
 代码风格遵循 [Google Python Style](https://google.github.io/styleguide/pyguide.html)（[中文版](https://google-styleguide.readthedocs.io/zh_CN/latest/google-python-styleguide/contents.html)）
 
-代码格式请遵循 [PEP8]，可以用自动格式化工具(如 `black`)
+代码格式请遵循 [PEP8]，可以用自动格式化工具(推荐 `black`)
 
 请务必严格遵循该规范，特别是命名、空格的正确使用。在提交前，会自动运行代码检查工具，检查代码中存在的明显问题。
 
@@ -73,6 +73,8 @@ fix!: 给 method() 增加了一个必需参数
 
 1. 如果你增加了一个新功能，请在对应位置补充文档（docs/）。
 2. 尽量复用现有代码。
+3. 请务必不要忘记注释（包括函数注释、参数类型注释、返回值注释）。
+4. 请保证您的代码可以在 `CPython3.8` 环境下运行，不要使用新版本的新增功能。
 
 # 附录
 
@@ -80,3 +82,6 @@ fix!: 给 method() 增加了一个必需参数
 
 [Pro Git](https://progit.cn/)
 
+附 2：写得非常简略的代码贡献入门指南
+
+[代码贡献指南](/.github/CODING.md)

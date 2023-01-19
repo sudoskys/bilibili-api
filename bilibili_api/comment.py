@@ -13,6 +13,7 @@ bilibili_api.comment
 + 小黑屋: ban/{2600321}
 """
 from enum import Enum
+from typing import Union
 
 from .utils.utils import get_api
 from .utils.network_httpx import request
@@ -55,8 +56,8 @@ class OrderType(Enum):
     + TIME：按发布时间倒序。
     """
 
-    LIKE = 2
-    TIME = 0
+    LIKE = 3
+    TIME = 2
 
 
 class Comment:
@@ -68,21 +69,21 @@ class Comment:
     """
 
     def __init__(
-        self, oid: int, type_: CommentResourceType, rpid: int, credential: Credential = None
+        self, oid: int, type_: CommentResourceType, rpid: int, credential: Union[Credential, None] = None
     ):
         """
         Args:
             oid        (int)         : 评论所在资源 ID。
             type_      (ResourceType): 评论所在资源类型枚举。
             rpid       (int)         : 评论 ID。
-            credential (Credential)  : 凭据类. Defaults to None. 
+            credential (Credential)  : 凭据类. Defaults to None.
         """
         self.__oid = oid
         self.__rpid = rpid
         self.__type = type_
-        self.credential = credential if credential else Credential
+        self.credential = credential if credential else Credential()
 
-    def __get_data(self, status: bool):
+    def __get_data(self, status: bool) -> dict:
         """
         获取通用请求载荷。
 
@@ -99,16 +100,16 @@ class Comment:
             "action": 1 if status else 0,
         }
 
-    def get_rpid(self):
+    def get_rpid(self) -> int:
         return self.__rpid
 
-    def get_type(self):
+    def get_type(self) -> CommentResourceType:
         return self.__type
 
-    def get_oid(self):
+    def get_oid(self) -> int:
         return self.__oid
 
-    async def like(self, status: bool = True):
+    async def like(self, status: bool = True) -> dict:
         """
         点赞评论。
 
@@ -127,7 +128,7 @@ class Comment:
             "POST", api["url"], data=self.__get_data(status), credential=self.credential
         )
 
-    async def hate(self, status: bool = True):
+    async def hate(self, status: bool = True) -> dict:
         """
         点踩评论。
 
@@ -146,7 +147,7 @@ class Comment:
             "POST", api["url"], data=self.__get_data(status), credential=self.credential
         )
 
-    async def pin(self, status: bool = True):
+    async def pin(self, status: bool = True) -> dict:
         """
         置顶评论。
 
@@ -164,7 +165,7 @@ class Comment:
             "POST", api["url"], data=self.__get_data(status), credential=self.credential
         )
 
-    async def delete(self):
+    async def delete(self) -> dict:
         """
         删除评论。
 
@@ -179,7 +180,7 @@ class Comment:
         del data["action"]
         return await request("POST", api["url"], data=data, credential=self.credential)
 
-    async def get_sub_comments(self, page_index: int = 1):
+    async def get_sub_comments(self, page_index: int = 1) -> dict:
         """
         获取子评论。即评论下的评论。
 
@@ -210,10 +211,10 @@ async def send_comment(
     text: str,
     oid: int,
     type_: CommentResourceType,
-    root: int = None,
-    parent: int = None,
-    credential: Credential = None,
-):
+    root: Union[int, None] = None,
+    parent: Union[int, None] = None,
+    credential: Union[None, Credential] = None,
+) -> dict:
     """
     通用发送评论 API。
 
@@ -273,7 +274,7 @@ async def get_comments(
     type_: CommentResourceType,
     page_index: int = 1,
     order: OrderType = OrderType.TIME,
-    credential: Credential = None,
+    credential: Union[Credential, None] = None,
 ):
     """
     获取资源评论列表。
@@ -292,5 +293,7 @@ async def get_comments(
         raise ArgsException("page_index 必须大于或等于 1")
 
     api = API["comment"]["get"]
-    params = {"pn": page_index, "type": type_.value, "oid": oid, "sort": order.value}
+    params = {"next": page_index, "type": type_.value, "oid": oid, "mode": order.value, "plat": 1}
+    if page_index == 1:
+        params["seek_rpid"] = ""
     return await request("GET", api["url"], params=params, credential=credential)
