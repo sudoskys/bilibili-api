@@ -8,6 +8,7 @@ from typing import Callable, Union, List
 import json
 from .utils.utils import get_api
 from .utils.network_httpx import request, get_session
+from .video_zone import VideoZoneTypes
 
 API = get_api("search")
 
@@ -96,6 +97,22 @@ class OrderUser(Enum):
     LEVEL = "level"
 
 
+class OrderCheese(Enum):
+    """
+    课程搜索排序类型
+
+    + RECOMMEND: 综合
+    + SELL     : 销量最高
+    + NEW      : 最新上架
+    + CHEEP    : 售价最低
+    """
+
+    RECOMMEND = -1
+    SELL = 1
+    NEW = 2
+    CHEEP = 3
+
+
 class CategoryTypePhoto(Enum):
     """
     相册分类
@@ -153,11 +170,11 @@ async def search_by_type(
     search_type: Union[SearchObjectType, None] = None,
     order_type: Union[OrderUser, OrderLiveRoom, OrderArticle, OrderVideo, None] = None,
     time_range: int = -1,
-    topic_type: Union[int, None] = None,
+    video_zone_type: Union[int, VideoZoneTypes, None] = None,
     order_sort: Union[int, None] = None,
     category_id: Union[CategoryTypeArticle, CategoryTypePhoto, int, None] = None,
     page: int = 1,
-    debug_param_func: Union[Callable, None]=None,
+    debug_param_func: Union[Callable, None] = None,
 ) -> dict:
     """
     指定分区，类型，视频长度等参数进行搜索，返回未经处理的字典
@@ -168,7 +185,7 @@ async def search_by_type(
         order_sort       (int | None, optional)                                                  : 用户粉丝数及等级排序顺序 默认为0 由高到低：0 由低到高：1
         category_id      (CategoryTypeArticle | CategoryTypePhoto | int | None, optional)        : 专栏/相簿分区筛选，指定分类，只在相册和专栏类型下生效
         time_range       (int, optional)                                                         : 指定时间，自动转换到指定区间，只在视频类型下生效 有四种：10分钟以下，10-30分钟，30-60分钟，60分钟以上
-        topic_type       (int | None, optional)                                                  : 话题类型，指定 tid (可使用 channel 模块查询)
+        video_zone_type        (int | ZoneTypes | None, optional)                                : 话题类型，指定 tid (可使用 channel 模块查询)
         order_type       (OrderUser | OrderLiveRoom | OrderArticle | OrderVideo | None, optional): 排序分类类型
         keyword          (str)                                                                   : 搜索关键词
         search_type      (SearchObjectType | None, optional)                                     : 搜索类型
@@ -202,16 +219,18 @@ async def search_by_type(
         elif 10 < time_range <= 30:
             time_code = 2
         elif 0 < time_range <= 10:
-            time_code = 2
+            time_code = 1
         else:
             time_code = 0
         params["duration"] = time_code
-    # topic_type
-    if topic_type:
-        if isinstance(topic_type, int):
-            params["tids"] = topic_type
+    # zone_type
+    if video_zone_type:
+        if isinstance(video_zone_type, int):
+            params["tids"] = video_zone_type
+        elif isinstance(video_zone_type, VideoZoneTypes):
+            params["tids"] = video_zone_type.value
         else:
-            params["tids"] = topic_type.value
+            params["tids"] = video_zone_type
     # order_type
     if order_type:
         params["order"] = order_type.value
@@ -244,7 +263,7 @@ async def get_hot_search_keywords() -> dict:
     """
     api = API["search"]["hot_search_keywords"]
     sess = get_session()
-    return json.loads((await sess.request("GET", api["url"])).text)["cost"]
+    return json.loads((await sess.request("GET", api["url"])).text)
 
 
 async def get_suggest_keywords(keyword: str) -> List[str]:
@@ -273,11 +292,56 @@ async def search_games(keyword: str) -> dict:
     搜索游戏特用函数
 
     Args:
-        keyword(str): 搜索关键词
+        keyword (str): 搜索关键词
 
     Returns:
         dict: 调用 API 返回的结果
     """
     api = API["search"]["game"]
     params = {"keyword": keyword}
+    return await request("GET", api["url"], params=params)
+
+
+async def search_manga(keyword: str, page_num: int = 1, page_size: int = 9):
+    """
+    搜索漫画特用函数
+
+    Args:
+        keyword   (str): 搜索关键词
+        page_num  (int): 页码. Defaults to 1.
+        page_size (int): 每一页的数据大小. Defaults to 9.
+
+    Returns:
+        dict: 调用 API 返回的结果
+    """
+    api = API["search"]["manga"]
+    data = {"key_word": keyword, "page_num": page_num, "page_size": page_size}
+    return await request("POST", api["url"], data=data, no_csrf=True)
+
+
+async def search_cheese(
+    keyword: str,
+    page_num: int = 1,
+    page_size: int = 30,
+    order: OrderCheese = OrderCheese.RECOMMEND,
+):
+    """
+    搜索课程特用函数
+
+    Args:
+        keyword   (str)        : 搜索关键词
+        page_num  (int)        : 页码. Defaults to 1.
+        page_size (int)        : 每一页的数据大小. Defaults to 30.
+        order     (OrderCheese): 排序方式. Defaults to OrderCheese.RECOMMEND
+
+    Returns:
+        dict: 调用 API 返回的结果
+    """
+    api = API["search"]["cheese"]
+    params = {
+        "word": keyword,
+        "page": page_num,
+        "page_size": page_size,
+        "sort_type": order.value,
+    }
     return await request("GET", api["url"], params=params)

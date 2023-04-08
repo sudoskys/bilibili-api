@@ -6,6 +6,8 @@ from bilibili_api import audio
 
 音频相关
 
+---
+
 ## class Audio
 
 音频类。

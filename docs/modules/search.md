@@ -89,6 +89,19 @@ from bilibili_api import search
 + SCORES : 最多评论
   Ps: Api 中 的 order_sort 字段决定顺序还是倒序
 
+
+## class OrderCheese
+
+**Extends:** enum.Enum
+
+课程搜索排序类型
+
++ RECOMMEND: 综合
++ SELL     : 销量最高
++ NEW      : 最新上架
++ CHEEP    : 售价最低
+
+
 ## async def search()
 
 只指定关键字在 web 进行搜索，返回未经处理的字典
@@ -110,7 +123,7 @@ from bilibili_api import search
 | search_type      | SearchObjectType, None                                | 搜索类别                                                       |
 | order_type       | UserOrder,VideoOrder,ArticleOrder,LiveRoomOrder,None | 排序分类类型                                                     |
 | time_range       | int                                             | 指定时间，自动转换到指定区间，只在视频类型下生效 有四种：10分钟以下，10-30分钟，30-60分钟，60分钟以上 |
-| topic_type       | int , TopicType                                 | 话题 tids                                                    |
+| video_zone_type       | int , video_zone.VideoZoneTypes                                 | 视频分区 tid                                                    |
 | order_sort       | int                                             | 仅用于用户用户，设置粉丝数及等级排序顺序,默认,由高到低:0 ,由低到高：1                     |
 | category_id      | int,CategoryTypePhoto,CategoryTypeArticle,None    | 专栏/相册专用类型                                                  |
 | debug_param_func | Callable,None                                           | 参数回调器，用来存储或者什么的                                            |
@@ -147,5 +160,30 @@ from bilibili_api import search
 | keyword | str | 搜索关键词 |
 
 搜索游戏特用函数
+
+**Returns:** dict: 调用 API 返回的结果
+
+## async def search_manga()
+
+| name | type | description |
+| - | - | - |
+| keyword | str | 搜索关键词 |
+| page_num | int | 页码. Defaults to 1. |
+| page_size | int | 每一页的数据大小. Defaults to 9. |
+
+搜索漫画特用函数
+
+**Returns:** dict: 调用 API 返回的结果
+
+## async def search_cheese()
+
+| name | type | description |
+| - | - | - |
+| keyword | str | 搜索关键词 |
+| page_num | int | 页码. Defaults to 1. |
+| page_size | int | 每一页的数据大小. Defaults to 50. |
+| order | OrderCheese | 排序方式. Defaults to OrderCheese.RECOMMEND |
+
+搜索课程特用函数
 
 **Returns:** dict: 调用 API 返回的结果

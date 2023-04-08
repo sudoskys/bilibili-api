@@ -19,18 +19,106 @@ from bilibili_api import dynamic
 
 ---
 
+## class BuildDynmaic
+
+构建动态内容
+
+### Attributes
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| contents | List | 动态内容字段 |
+| pics | List | 图片字段 |
+| attach_card | dict | 动态卡片字段 |
+| topic | dict | 话题字段 |
+| options | dict | 选项字段 |
+
+### Functions
+
+#### def add_text()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| text | str | 文本内容 |
+
+添加文本内容（可以附加 at 人和表情包）
+
+#### def add_plain_text()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| text | str | 文本内容 |
+
+添加纯内容
+
+#### def add_at()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| user | int, User | 用户 ID 或用户类 |
+
+添加 @ 用户
+
+#### def add_emoji()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| emoji_name | str | 表情中文名称 |
+
+添加表情
+
+#### def add_vote()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| vote | Vote, int | 投票类或 vote_id |
+
+添加投票
+#### def add_image()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| image | Picture | 图片类 |
+
+添加图片
+
+#### def set_attach_card()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| oid | int | 卡片id |
+
+设置直播预约
+
+在 live.create_live_reserve 中获取 oid
+
+#### def set_topic()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| topic_id | int, Topic | 话题id 或话题类 |
+
+设置话题
+
+#### def set_options()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| up_choose_comment | bool | 开启精选评论 |
+| close_comment | bool | 关闭评论 |
+
+设置选项
+
+---
+
 ## async def send_dynamic()
 
-| name         | type                              | description                         |
-| ------------ | --------------------------------- | ----------------------------------- |
-| text         | str                               | 动态文本                            |
-| images       | List[Picture] \| None, optional | 图片流列表. Defaults to None.       |
-| send_time    | datetime.datetime \| None, optional       | 定时动态发送时间. Defaults to None. |
-| credential   | Credential \| None, optional              | 凭据. Defaults to None.             |
+| name         | type         | description |
+| ------------ | ------------ | ----------- |
+| info         | BuildDynmaic | 动态构建类    |
+| credential   | Credential   | 凭据         |
 
-自动判断动态类型选择合适的 API 并发送动态。
-
-如需 @ 人，请使用格式 "@UID "，注意最后有一个空格
+发送动态（Web端）
 
 **Returns:** dict: 调用 API 返回的结果
 
@@ -174,3 +262,35 @@ from bilibili_api import dynamic
 获取正在直播的关注者
 
 **Returns:** dict: 调用 API 返回的结果
+
+---
+
+#### async def get_dynamic_page_UPs_info()
+
+| name | type | description |
+| - | - | - |
+| credential | Credential | 凭据类. |
+
+获取动态页 UP 主列表
+
+**Returns:** dict: 调用 API 返回的结果
+
+---
+
+#### async def get_dynamic_page_info()
+
+| name | type | description |
+| - | - | - |
+| credential | Credential | 凭据类. |
+| _type | DynamicType, optional | 动态类型. Defaults to None. |
+| host_mid | int, optional | UP 主 UID. Defaults to None. |
+| offset | int, optional | 偏移值（下一页的第一个动态 ID，为该请求结果中的 offset 键对应的值），类似单向链表. Defaults to None. |
+| pn | int | 页码. Defaults to 1. |
+
+获取动态页动态列表
+
+获取全部动态或者相应类型需传入 _type
+
+获取指定 UP 主动态需传入 host_mid
+
+**Returns:** list[Dynamic]: 动态类列表

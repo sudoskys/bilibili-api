@@ -7,7 +7,8 @@ bilibili_api.audio
 from .utils.utils import get_api
 from .utils.Credential import Credential
 from .utils.network_httpx import request
-from typing import Union
+from typing import Union, Optional
+from enum import Enum
 
 API = get_api("audio")
 
@@ -165,7 +166,9 @@ async def get_user_stat(uid: int, credential: Union[Credential, None] = None) ->
     return await request("GET", api["url"], params, credential=credential)
 
 
-async def get_hot_song_list(pn: int = 1, credential: Union[Credential, None] = None) -> dict:
+async def get_hot_song_list(
+    pn: int = 1, credential: Union[Credential, None] = None
+) -> dict:
     """
     获取热门歌单
 

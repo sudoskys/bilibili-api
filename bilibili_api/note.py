@@ -8,6 +8,7 @@ from html import unescape
 import json
 from enum import Enum
 
+from yarl import URL
 from .utils.utils import get_api
 from .utils.Credential import Credential
 from .utils.network_httpx import request, get_session
@@ -21,9 +22,11 @@ import yaml
 API = get_api("note")
 API_ARTICLE = get_api("article")
 
+
 class NoteType(Enum):
     PUBLIC = "public"
     PRIVATE = "private"
+
 
 class Note:
     """
@@ -36,7 +39,7 @@ class Note:
         aid: Union[int, None] = None,
         note_id: Union[int, None] = None,
         note_type: NoteType = NoteType.PUBLIC,
-        credential: Union[Credential, None] = None
+        credential: Union[Credential, None] = None,
     ):
         """
         Args:
@@ -160,7 +163,7 @@ class Note:
         content = (await self.__get_info_cached())["content"]
         for line in content:
             if type(line["insert"]) == dict:
-                if 'imageUpload' in line["insert"]:
+                if "imageUpload" in line["insert"]:
                     img_info = line["insert"]["imageUpload"]
                     result.append(img_info)
         return result
@@ -179,7 +182,6 @@ class Note:
             result.append(Picture().from_url(url=f'https:{image["url"]}'))
         return result
 
-
     async def get_all(self) -> dict:
         """
         (仅供公开笔记)
@@ -195,7 +197,7 @@ class Note:
         resp = await sess.get(f"https://www.bilibili.com/read/cv{self.__cvid}")
         html = resp.text
 
-        match = re.search("window\.__INITIAL_STATE__=(\{.+?\});", html, re.I) # type: ignore
+        match = re.search("window\.__INITIAL_STATE__=(\{.+?\});", html, re.I)  # type: ignore
 
         if not match:
             raise ApiException("找不到信息")
@@ -241,7 +243,9 @@ class Note:
         self.credential.raise_for_no_sessdata()
 
         api = (
-            API_ARTICLE["operate"]["add_favorite"] if status else API_ARTICLE["operate"]["del_favorite"]
+            API_ARTICLE["operate"]["add_favorite"]
+            if status
+            else API_ARTICLE["operate"]["del_favorite"]
         )
 
         data = {"id": self.__cvid}
@@ -270,13 +274,17 @@ class Note:
         获取并解析笔记内容
         该返回不会返回任何值，调用该方法后请再调用 `self.markdown()` 或 `self.json()` 来获取你需要的值。
         """
+
         def parse_note(data: List[dict]):
             for field in data:
                 if not isinstance(field["insert"], str):
                     if "tag" in field["insert"].keys():
                         node = VideoCardNode()
                         node.aid = json.loads(
-                            httpx.get("https://hd.biliplus.com/api/cidinfo?cid=" + str(field["insert"]["tag"]["cid"])).text
+                            httpx.get(
+                                "https://hd.biliplus.com/api/cidinfo?cid="
+                                + str(field["insert"]["tag"]["cid"])
+                            ).text
                         )["data"]["cid"]
                         self.__children.append(node)
                     elif "imageUpload" in field["insert"].keys():
@@ -320,6 +328,7 @@ class Note:
                     else:
                         pass
                     self.__children.append(node)
+
         info = await self.get_info()
         content = info["content"]
         content = unescape(content)
@@ -327,7 +336,6 @@ class Note:
         self.__has_parsed = True
         self.__meta = await self.__get_info_cached()
         del self.__meta["content"]
-
 
     def markdown(self) -> str:
         """
@@ -346,8 +354,8 @@ class Note:
         for node in self.__children:
             try:
                 markdown_text = node.markdown()
-            except:
-                continue
+            except Exception as e:
+                pass
             else:
                 content += markdown_text
 
@@ -368,7 +376,7 @@ class Note:
             raise ApiException("请先调用 fetch_content()")
 
         return {
-            "type": "Article",
+            "type": "Note",
             "meta": self.__meta,
             "children": list(map(lambda x: x.json(), self.__children)),
         }
@@ -381,11 +389,11 @@ class Node:
         pass
 
     @overload
-    def markdown(self) -> str: # type: ignore
+    def markdown(self) -> str:  # type: ignore
         pass
 
     @overload
-    def json(self) -> dict: # type: ignore
+    def json(self) -> dict:  # type: ignore
         pass
 
 
@@ -599,10 +607,14 @@ class ImageNode(Node):
         self.alt = ""
 
     def markdown(self):
+        if URL(self.url).scheme == "":
+            self.url = "https:" + self.url
         alt = self.alt.replace("[", "\\[")
         return f"![{alt}]({self.url})\n\n"
 
     def json(self):
+        if URL(self.url).scheme == "":
+            self.url = "https:" + self.url
         return {"type": "ImageNode", "url": self.url, "alt": self.alt}
 
 

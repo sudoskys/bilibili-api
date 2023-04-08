@@ -8,12 +8,12 @@ with open("requirements.txt", "r", encoding="utf8") as f:
 
 setuptools.setup(
     name="bilibili-api-python",
-    version="14.0.0",
+    version="15.3.1",
     license="GPLv3+",
     author="Nemo2011",
     author_email="yimoxia@outlook.com",
     maintainer="MoyuScript, Nemo2011",
-    description="哔哩哔哩的各种 API 调用便捷整合（视频、动态、直播等），另外附加一些常用的功能。",
+    description="The fork of module bilibili-api. 哔哩哔哩的各种 API 调用便捷整合（视频、动态、直播等），另外附加一些常用的功能。",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=[
@@ -24,6 +24,7 @@ setuptools.setup(
         "bilibili_api.tools",
         "bilibili_api.tools.opendocs",
         "bilibili_api.tools.ivitools",
+        "bilibili_api.tools.parser",
         "bilibili_api._pyinstaller",
     ],
     keywords=["bilibili", "api", "spider"],
@@ -36,7 +37,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.11",
     ],
     package_data={
-        "": ["data/**/*.*", "py.typed", "requirements.txt", "data/*.*", "html/*.*", "css/*.*"]
+        "": ["data/**/*.*", "py.typed", "requirements.txt", "data/*.*", "data/article/*.*", "data/geetest/*.*", "data/corerespond/*.*"]
     },
     install_requires=requires.splitlines(),
     url="https://github.com/nemo2011/bilibili-api",

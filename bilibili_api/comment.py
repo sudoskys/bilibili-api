@@ -36,6 +36,7 @@ class CommentResourceType(Enum):
     + AUDIO_LIST：歌单。
     + CHEESE: 课程
     + BLACK_ROOM: 小黑屋
+    + MANGA: 漫画
     """
 
     VIDEO = 1
@@ -46,6 +47,7 @@ class CommentResourceType(Enum):
     AUDIO_LIST = 19
     CHEESE = 33
     BLACK_ROOM = 6
+    MANGA = 22
 
 
 class OrderType(Enum):
@@ -56,8 +58,8 @@ class OrderType(Enum):
     + TIME：按发布时间倒序。
     """
 
-    LIKE = 3
-    TIME = 2
+    LIKE = 2
+    TIME = 0
 
 
 class Comment:
@@ -69,7 +71,11 @@ class Comment:
     """
 
     def __init__(
-        self, oid: int, type_: CommentResourceType, rpid: int, credential: Union[Credential, None] = None
+        self,
+        oid: int,
+        type_: CommentResourceType,
+        rpid: int,
+        credential: Union[Credential, None] = None,
     ):
         """
         Args:
@@ -293,7 +299,5 @@ async def get_comments(
         raise ArgsException("page_index 必须大于或等于 1")
 
     api = API["comment"]["get"]
-    params = {"next": page_index, "type": type_.value, "oid": oid, "mode": order.value, "plat": 1}
-    if page_index == 1:
-        params["seek_rpid"] = ""
+    params = {"pn": page_index, "type": type_.value, "oid": oid, "sort": order.value}
     return await request("GET", api["url"], params=params, credential=credential)

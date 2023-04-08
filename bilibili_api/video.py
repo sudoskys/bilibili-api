@@ -16,6 +16,7 @@ import struct
 import aiohttp
 import httpx
 from typing import Any, List, Union
+from functools import cmp_to_key
 
 from .exceptions import ResponseException
 from .exceptions import NetworkException
@@ -29,40 +30,99 @@ from .utils.network import get_session as get_session_aiohttp
 from .utils.Danmaku import Danmaku, SpecialDanmaku
 from .utils.BytesReader import BytesReader
 from .utils.AsyncEvent import AsyncEvent
+from dataclasses import dataclass
 from . import settings
+from inspect import isfunction
 
 API = get_api("video")
 
-# 视频分辨率
-VIDEO_QUALITY = {
-    126: "杜比视界",
-    125: "真彩 HDR",
-    120: "超清 4K",
-    116: "高清 1080P60",
-    112: "高清 1080P+",
-    80: "高清 1080P",
-    64: "高清 720P60",
-    32: "清晰 480P",
-    16: "流畅 360P",
-}
 
-# 视频编码 | if "hev" in codecs: HEVC(H.265) |
-VIDEO_CODECS = {"hev": "HEVC(H.265)", "avc": "AVC(H.264)", "av01": "AV1"}
+async def get_cid_info(cid: int):
+    """
+    获取 cid 信息 (对应的视频，具体分 P 序号，up 等)
 
-# 音频编码
-AUDIO_QUALITY = {
-    30216: "64 K",
-    30232: "132 K",
-    30250: "杜比全景声",
-    30251: "Hi-Res 无损",
-    30280: "192 K",
-}
+    Returns:
+        dict: 调用 https://hd.biliplus.com 的 API 返回的结果
+    """
+    api = API["info"]["cid_info"]
+    params = {"cid": cid}
+    return await request("GET", api["url"], params=params)
 
 
 class DanmakuOperatorType(Enum):
+    """
+    弹幕操作枚举
+
+    + DELETE - 删除弹幕
+    + PROTECT - 保护弹幕
+    + UNPROTECT - 取消保护弹幕
+    """
+
     DELETE = 1
     PROTECT = 2
     UNPROTECT = 3
+
+
+class VideoAppealReasonType:
+    """
+    视频投诉原因枚举
+
+    注意: 每一项均为函数，部分项有参数，没有参数的函数无需调用函数，直接传入即可，有参数的函数请调用结果之后传入。
+
+    - ILLEGAL(): 违法违禁
+    - PRON(): 色情
+    - VULGAR(): 低俗
+    - GAMBLED_SCAMS(): 赌博诈骗
+    - VIOLENT(): 血腥暴力
+    - PERSONAL_ATTACK(): 人身攻击
+    - PLAGIARISM(bvid: str): 与站内其他视频撞车
+    - BAD_FOR_YOUNGS(): 青少年不良信息
+    - CLICKBAIT(): 不良封面/标题
+    - POLITICAL_RUMORS(): 涉政谣言
+    - SOCIAL_RUMORS(): 涉社会事件谣言
+    - COVID_RUMORS(): 疫情谣言
+    - UNREAL_EVENT(): 虚假不实消息
+    - OTHER(): 有其他问题
+    - LEAD_WAR(): 引战
+    - CANNOT_CHARGE(): 不能参加充电
+    - UNREAL_COPYRIGHT(source: str): 转载/自制类型错误
+    """
+
+    ILLEGAL = lambda: 2
+    PRON = lambda: 3
+    VULGAR = lambda: 4
+    GAMBLED_SCAMS = lambda: 5
+    VIOLENT = lambda: 6
+    PERSONAL_ATTACK = lambda: 7
+    BAD_FOR_YOUNGS = lambda: 10000
+    CLICKBAIT = lambda: 10013
+    POLITICAL_RUMORS = lambda: 10014
+    SOCIAL_RUMORS = lambda: 10015
+    COVID_RUMORS = lambda: 10016
+    UNREAL_EVENT = lambda: 10017
+    OTHER = lambda: 1
+    LEAD_WAR = lambda: 9
+    CANNOT_CHARGE = lambda: 10
+
+    @staticmethod
+    def PLAGIARISM(bvid: str):
+        """
+        与站内其他视频撞车
+
+        Args:
+            bvid (str): 撞车对象
+        """
+        return {"tid": 8, "撞车对象": bvid}
+
+    @staticmethod
+    def UNREAL_COPYRIGHT(source: str):
+        """
+        转载/自制类型错误
+
+        Args:
+            source (str): 原创视频出处
+        """
+        return {"tid": 52, "出处": source}
 
 
 class Video:
@@ -74,7 +134,7 @@ class Video:
         self,
         bvid: Union[None, str] = None,
         aid: Union[None, int] = None,
-        credential: Union[None, Credential] = None
+        credential: Union[None, Credential] = None,
     ):
         """
         Args:
@@ -179,15 +239,26 @@ class Video:
         params = {"bvid": self.get_bvid(), "aid": self.get_aid()}
         return await request("GET", url, params=params, credential=self.credential)
 
-    async def get_tags(self) -> dict:
+    async def get_tags(
+        self, page_index: Union[int, None] = 0, cid: Union[int, None] = None
+    ) -> dict:
         """
         获取视频标签。
+
+        Args:
+            page_index (int | None): 分 P 序号. Defaults to 0.
+            cid        (int | None): 分 P 编码. Defaults to None.
 
         Returns:
             dict: 调用 API 返回的结果。
         """
+        if cid == None:
+            if page_index == None:
+                raise ArgsException("page_index 和 cid 至少提供一个。")
+
+            cid = await self.get_cid(page_index=page_index)
         url = API["info"]["tags"]["url"]
-        params = {"bvid": self.get_bvid(), "aid": self.get_aid()}
+        params = {"bvid": self.get_bvid(), "aid": self.get_aid(), "cid": cid}
         return await request("GET", url, params=params, credential=self.credential)
 
     async def get_chargers(self) -> dict:
@@ -241,7 +312,7 @@ class Video:
         self,
         cid: Union[int, None] = None,
         json_index: bool = False,
-        pvideo: bool = True
+        pvideo: bool = True,
     ) -> dict:
         """
         获取视频快照(视频各个时间段的截图拼图)
@@ -282,10 +353,12 @@ class Video:
         self,
         page_index: Union[int, None] = None,
         cid: Union[int, None] = None,
-        html5: bool = False
+        html5: bool = False,
     ) -> dict:
         """
         获取视频下载信息。
+
+        返回结果可以传入 `VideoDownloadURLDataDetecter` 进行解析。
 
         page_index 和 cid 至少提供其中一个，其中 cid 优先级最高
 
@@ -323,7 +396,9 @@ class Video:
                 "fnval": 4048,
                 "fourk": 1,
             }
-        return await request("GET", url, params=params, credential=self.credential)
+        result = await request("GET", url, params=params, credential=self.credential)
+        result.update({"is_html5": True} if html5 else {})
+        return result
 
     async def get_related(self) -> dict:
         """
@@ -379,21 +454,6 @@ class Video:
             "favoured"
         ]
 
-    async def get_media_list(self) -> dict:
-        """
-        获取收藏夹列表信息，用于收藏操作，含各收藏夹对该视频的收藏状态。
-
-        Returns:
-            dict: 调用 API 返回的结果。
-        """
-        self.credential.raise_for_no_sessdata()
-
-        info = await self.__get_info_cached()
-
-        url = API["info"]["media_list"]["url"]
-        params = {"type": 2, "rid": self.get_aid(), "up_mid": info["owner"]["mid"]}
-        return await request("GET", url, params=params, credential=self.credential)
-
     async def is_forbid_note(self) -> bool:
         """
         是否禁止笔记。
@@ -418,7 +478,9 @@ class Video:
 
         url = API["info"]["private_notes"]["url"]
         params = {"oid": self.get_aid(), "oid_type": 0}
-        return (await request("GET", url, params=params, credential=self.credential))["noteIds"]
+        return (await request("GET", url, params=params, credential=self.credential))[
+            "noteIds"
+        ]
 
     async def get_public_notes_list(self, pn: int, ps: int) -> dict:
         """
@@ -437,9 +499,7 @@ class Video:
         return await request("GET", url, params=params, credential=self.credential)
 
     async def get_danmaku_view(
-        self,
-        page_index: Union[int, None] = None,
-        cid: Union[int, None] = None
+        self, page_index: Union[int, None] = None, cid: Union[int, None] = None
     ) -> dict:
         """
         获取弹幕设置、特殊弹幕、弹幕数量、弹幕分段等信息。
@@ -656,7 +716,7 @@ class Video:
         self,
         page_index: int = 0,
         date: Union[datetime.date, None] = None,
-        cid: Union[int, None] = None
+        cid: Union[int, None] = None,
     ) -> List[Danmaku]:
         """
         获取弹幕。
@@ -754,7 +814,7 @@ class Video:
                     elif data_type == 5:
                         dm.color = hex(dm_reader.varint())[2:]
                     elif data_type == 6:
-                        dm.set_crc32_id(dm_reader.string())
+                        dm.crc32_id = dm_reader.string()
                     elif data_type == 7:
                         dm.text = dm_reader.string()
                     elif data_type == 8:
@@ -775,9 +835,7 @@ class Video:
         return danmakus
 
     async def get_special_dms(
-        self,
-        page_index: int = 0,
-        cid: Union[int, None] = None
+        self, page_index: int = 0, cid: Union[int, None] = None
     ) -> List[SpecialDanmaku]:
         """
         获取特殊弹幕
@@ -841,7 +899,7 @@ class Video:
         self,
         page_index: Union[int, None] = None,
         date: Union[datetime.date, None] = None,
-        cid: Union[int, None] = None
+        cid: Union[int, None] = None,
     ) -> Union[None, List[str]]:
         """
         获取特定月份存在历史弹幕的日期。
@@ -875,7 +933,7 @@ class Video:
         self,
         page_index: Union[int, None] = None,
         ids: Union[List[int], None] = None,
-        cid: Union[int, None] = None
+        cid: Union[int, None] = None,
     ) -> dict:
         """
         是否已点赞弹幕。
@@ -900,7 +958,7 @@ class Video:
             cid = await self.__get_page_id_by_index(page_index)
 
         api = API["danmaku"]["has_liked_danmaku"]
-        params = {"oid": cid, "ids": ",".join(ids)} # type: ignore
+        params = {"oid": cid, "ids": ",".join(ids)}  # type: ignore
         return await request(
             "GET", url=api["url"], params=params, credential=self.credential
         )
@@ -909,7 +967,7 @@ class Video:
         self,
         page_index: Union[int, None] = None,
         danmaku: Union[Danmaku, None] = None,
-        cid: Union[int, None] = None
+        cid: Union[int, None] = None,
     ) -> dict:
         """
         发送弹幕。
@@ -959,9 +1017,7 @@ class Video:
         )
 
     async def get_danmaku_xml(
-        self,
-        page_index: Union[int, None] = None,
-        cid: Union[int, None] = None
+        self, page_index: Union[int, None] = None, cid: Union[int, None] = None
     ) -> str:
         """
         获取所有弹幕的 xml 源文件（非装填）
@@ -1125,6 +1181,17 @@ class Video:
             "POST", url=api["url"], data=data, credential=self.credential
         )
 
+    async def triple(self) -> dict:
+        """
+        给阿婆主送上一键三连
+
+        Returns:
+            dict: 调用 API 返回的结果
+        """
+        api = API["operate"]["yjsl"]
+        data = {"bvid": self.get_bvid(), "aid": self.get_aid()}
+        return await request("POST", api["url"], data=data, credential=self.credential)
+
     async def add_tag(self, name: str) -> dict:
         """
         添加标签。
@@ -1164,45 +1231,26 @@ class Video:
             "POST", url=api["url"], data=data, credential=self.credential
         )
 
-    async def subscribe_tag(self, tag_id: int) -> dict:
+    async def appeal(self, reason: Any, detail: str):
         """
-        关注标签。
+        投诉稿件
 
         Args:
-            tag_id (int): 标签 ID。
+            reason (Any): 投诉类型。传入 VideoAppealReasonType 中的项目即可。
+            detail (str): 详情信息。
 
         Returns:
-            dict: 调用 API 返回的结果。
+            dict: 调用 API 返回的结果
         """
-        self.credential.raise_for_no_sessdata()
-        self.credential.raise_for_no_bili_jct()
-
-        api = API["operate"]["subscribe_tag"]
-
-        data = {"tag_id": tag_id}
-        return await request(
-            "POST", url=api["url"], data=data, credential=self.credential
-        )
-
-    async def unsubscribe_tag(self, tag_id: int) -> dict:
-        """
-        取关标签。
-
-        Args:
-            tag_id (int): 标签 ID。
-
-        Returns:
-            dict: 调用 API 返回的结果。
-        """
-        self.credential.raise_for_no_sessdata()
-        self.credential.raise_for_no_bili_jct()
-
-        api = API["operate"]["unsubscribe_tag"]
-
-        data = {"tag_id": tag_id}
-        return await request(
-            "POST", url=api["url"], data=data, credential=self.credential
-        )
+        api = API["operate"]["appeal"]
+        data = {"aid": self.get_aid(), "desc": detail}
+        if isfunction(reason):
+            reason = reason()
+        if isinstance(reason, int):
+            reason = {"tid": reason}
+        data.update(reason)
+        # XXX: 暂不支持上传附件
+        return await request("POST", api["url"], data=data, credential=self.credential)
 
     async def set_favorite(
         self, add_media_ids: List[int] = [], del_media_ids: List[int] = []
@@ -1348,7 +1396,7 @@ class Video:
         self,
         page_index: Union[int, None] = None,
         dmid: int = 0,
-        cid: Union[int, None] = None
+        cid: Union[int, None] = None,
     ) -> dict:
         """
         撤回弹幕
@@ -1377,9 +1425,7 @@ class Video:
         )
 
     async def get_pbp(
-        self,
-        page_index: Union[int, None] = None,
-        cid: Union[int, None] = None
+        self, page_index: Union[int, None] = None, cid: Union[int, None] = None
     ) -> dict:
         """
         获取高能进度条
@@ -1600,7 +1646,7 @@ class VideoOnlineMonitor(AsyncEvent):
                 if msg.type == aiohttp.WSMsgType.BINARY:
                     data = self.__unpack(msg.data)
                     self.logger.debug(f"收到消息：{data}")
-                    await self.__handle_data(data) # type: ignore
+                    await self.__handle_data(data)  # type: ignore
 
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     self.logger.warning("连接被异常断开")
@@ -1749,3 +1795,471 @@ class VideoOnlineMonitor(AsyncEvent):
             )
             offset += region_header[0]
         return tuple(real_data)
+
+
+class VideoQuality(Enum):
+    """
+    视频的视频流分辨率枚举
+
+    - _360P: 流畅 360P
+    - _480P: 清晰 480P
+    - _720P: 高清 720P60
+    - _1080P: 高清 1080P
+    - _1080P_PLUS: 高清 1080P 高码率
+    - _1080P_60: 高清 1080P 60 帧码率
+    - _4K: 超清 4K
+    - HDR: 真彩 HDR
+    - DOLBY: 杜比视界
+    - _8K: 超高清 8K
+    """
+
+    _360P = 16
+    _480P = 32
+    _720P = 64
+    _1080P = 80
+    _1080P_PLUS = 112
+    _1080P_60 = 116
+    _4K = 120
+    HDR = 125
+    DOLBY = 126
+    _8K = 127
+
+
+class VideoCodecs(Enum):
+    """
+    视频的视频流编码枚举
+
+    - HEV: HEVC(H.265)
+    - AVC: AVC(H.264)
+    - AV1: AV1
+    """
+
+    HEV = "hev"
+    AVC = "avc"
+    AV1 = "av01"
+
+
+class AudioQuality(Enum):
+    """
+    视频的音频流清晰度枚举
+
+    - _64K: 64K
+    - _132K: 132K
+    - _192K: 192K
+    - HI_RES: Hi-Res 无损
+    - DOLBY: 杜比全景声
+    """
+
+    _64K = 30216
+    _132K = 30232
+    DOLBY = 30250
+    HI_RES = 30251
+    _192K = 30280
+
+
+@dataclass
+class VideoStreamDownloadURL:
+    """
+    (@dataclass)
+
+    视频流 URL 类
+
+    Attributes:
+        url           (str)         : 视频流 url
+        video_quality (VideoQuality): 视频流清晰度
+        video_codecs  (VideoCodecs) : 视频流编码
+    """
+
+    url: str
+    video_quality: VideoQuality
+    video_codecs: VideoCodecs
+
+
+@dataclass
+class AudioStreamDownloadURL:
+    """
+    (@dataclass)
+
+    音频流 URL 类
+
+    Attributes:
+        url           (str)         : 音频流 url
+        audio_quality (AudioQuality): 音频流清晰度
+    """
+
+    url: str
+    audio_quality: AudioQuality
+
+
+@dataclass
+class FLVStreamDownloadURL:
+    """
+    (@dataclass)
+
+    FLV 视频流
+
+    Attributes:
+        url           (str): FLV 流 url
+    """
+
+    url: str
+
+
+@dataclass
+class HTML5MP4DownloadURL:
+    """
+    (@dataclass)
+
+    可供 HTML5 播放的 mp4 视频流
+
+    Attributes:
+        url           (str): HTML5 mp4 视频流
+    """
+
+    url: str
+
+
+@dataclass
+class EpisodeTryMP4DownloadURL:
+    """
+    (@dataclass)
+
+    番剧/课程试看的 mp4 播放流
+
+    Attributes:
+        url           (str): 番剧试看的 mp4 播放流
+    """
+
+    url: str
+
+
+class VideoDownloadURLDataDetecter:
+    """
+    `Video.get_download_url` 返回结果解析类。
+
+    在调用 `Video.get_download_url` 之后可以将代入 `VideoDownloadURLDataDetecter`，此类将一键解析。
+
+    目前支持:
+      - 视频清晰度: 360P, 480P, 720P, 1080P, 1080P 高码率, 1080P 60 帧, 4K, HDR, 杜比视界, 8K
+      - 视频编码: HEVC(H.265), AVC(H.264), AV1
+      - 音频清晰度: 64K, 132K, Hi-Res 无损音效, 杜比全景声, 192K
+      - FLV 视频流
+      - 番剧/课程试看视频流
+    """
+
+    def __init__(self, data: dict):
+        """
+        Args:
+            data (dict): `Video.get_download_url` 返回的结果
+        """
+        self.__data = data
+
+    def check_video_and_audio_stream(self) -> bool:
+        """
+        判断是否为音视频分离流
+
+        Returns:
+            bool: 是否为音视频分离流
+        """
+        if "dash" in self.__data.keys():
+            return True
+        return False
+
+    def check_flv_stream(self) -> bool:
+        """
+        判断是否为 FLV 视频流
+
+        Returns:
+            bool: 是否为 FLV 视频流
+        """
+        if "durl" in self.__data.keys():
+            if self.__data["format"].startswith("flv"):
+                return True
+        return False
+
+    def check_html5_mp4_stream(self) -> bool:
+        """
+        判断是否为 HTML5 可播放的 mp4 视频流
+
+        Returns:
+            bool: 是否为 HTML5 可播放的 mp4 视频流
+        """
+        if "durl" in self.__data.keys():
+            if self.__data["format"].startswith("mp4"):
+                if self.__data.get("is_html5") == True:
+                    return True
+        return False
+
+    def check_episode_try_mp4_stream(self):
+        """
+        判断是否为番剧/课程试看的 mp4 视频流
+
+        Returns:
+            bool: 是否为番剧试看的 mp4 视频流
+        """
+        if "durl" in self.__data.keys():
+            if self.__data["format"].startswith("mp4"):
+                if self.__data.get("is_html5") != True:
+                    return True
+        return False
+
+    def detect_all(self):
+        """
+        解析并返回所有数据
+
+        Returns:
+            List[VideoStreamDownloadURL | AudioStreamDownloadURL | FLVStreamDownloadURL | HTML5MP4DownloadURL | EpisodeTryMP4DownloadURL]: 所有的视频/音频流
+        """
+        return self.detect()
+
+    def detect(
+        self,
+        video_max_quality: VideoQuality = VideoQuality._8K,
+        audio_max_quality: AudioQuality = AudioQuality._192K,
+        video_min_quality: VideoQuality = VideoQuality._360P,
+        audio_min_quality: AudioQuality = AudioQuality._64K,
+        video_accepted_qualities: List[VideoQuality] = [
+            item
+            for _, item in VideoQuality.__dict__.items()
+            if isinstance(item, VideoQuality)
+        ],
+        audio_accepted_qualities: List[AudioQuality] = [
+            item
+            for _, item in AudioQuality.__dict__.items()
+            if isinstance(item, AudioQuality)
+        ],
+        codecs: List[VideoCodecs] = [VideoCodecs.AV1, VideoCodecs.AVC, VideoCodecs.HEV],
+        no_dolby_video: bool = False,
+        no_dolby_audio: bool = False,
+        no_hdr: bool = False,
+        no_hires: bool = False,
+    ) -> List[
+        Union[
+            VideoStreamDownloadURL,
+            AudioStreamDownloadURL,
+            FLVStreamDownloadURL,
+            HTML5MP4DownloadURL,
+            EpisodeTryMP4DownloadURL,
+        ]
+    ]:
+        """
+        解析数据
+
+        Args:
+            **以下参数仅能在音视频流分离的情况下产生作用，flv / mp4 试看流 / html5 mp4 流下以下参数均没有作用**
+
+            video_max_quality       (VideoQuality, optional)      : 设置提取的视频流清晰度最大值，设置此参数绝对不会禁止 HDR/杜比. Defaults to VideoQuality._8K.
+            audio_max_quality       (AudioQuality, optional)      : 设置提取的音频流清晰度最大值. 设置此参数绝对不会禁止 Hi-Res/杜比. Defaults to AudioQuality._192K.
+            video_min_quality       (VideoQuality, optional)      : 设置提取的视频流清晰度最小值，设置此参数绝对不会禁止 HDR/杜比. Defaults to VideoQuality._360P.
+            audio_min_quality       (AudioQuality, optional)      : 设置提取的音频流清晰度最小值. 设置此参数绝对不会禁止 Hi-Res/杜比. Defaults to AudioQuality._64K.
+            video_accepted_qualities(List[VideoQuality], optional): 设置允许的所有视频流清晰度. Defaults to ALL.
+            audio_accepted_qualities(List[AudioQuality], optional): 设置允许的所有音频清晰度. Defaults to ALL.
+            codecs                  (List[VideoCodecs], optional) : 设置所有允许提取出来的视频编码. 此项不会忽略 HDR/杜比. Defaults to ALL codecs.
+            no_dolby_video          (bool, optional)              : 是否禁止提取杜比视界视频流. Defaults to False.
+            no_dolby_audio          (bool, optional)              : 是否禁止提取杜比全景声音频流. Defaults to False.
+            no_hdr                  (bool, optional)              : 是否禁止提取 HDR 视频流. Defaults to False.
+            no_hires                (bool, optional)              : 是否禁止提取 Hi-Res 音频流. Defaults to False.
+
+        Returns:
+            List[VideoStreamDownloadURL | AudioStreamDownloadURL | FLVStreamDownloadURL | HTML5MP4DownloadURL | EpisodeTryMP4DownloadURL]: 提取出来的视频/音频流
+        """
+        if "durl" in self.__data.keys():
+            if self.__data["format"].startswith("flv"):
+                # FLV 视频流
+                return [FLVStreamDownloadURL(url=self.__data["durl"][0]["url"])]
+            else:
+                if self.check_html5_mp4_stream():
+                    # HTML5 MP4 视频流
+                    return [HTML5MP4DownloadURL(url=self.__data["durl"][0]["url"])]
+                else:
+                    # 会员番剧试看 MP4 流
+                    return [EpisodeTryMP4DownloadURL(url=self.__data["durl"][0]["url"])]
+        else:
+            # 正常情况
+            streams = []
+            videos_data = self.__data["dash"]["video"]
+            audios_data = self.__data["dash"]["audio"]
+            flac_data = self.__data["dash"]["flac"]
+            dolby_data = self.__data["dash"]["dolby"]
+            for video_data in videos_data:
+                video_stream_url = video_data["baseUrl"]
+                video_stream_quality = VideoQuality(video_data["id"])
+                if video_stream_quality == VideoQuality.HDR and no_hdr:
+                    continue
+                if video_stream_quality == VideoQuality.DOLBY and no_dolby_video:
+                    continue
+                if (
+                    video_stream_quality != VideoQuality.DOLBY
+                    and video_stream_quality != VideoQuality.HDR
+                    and video_stream_quality.value > video_max_quality.value
+                ):
+                    continue
+                if (
+                    video_stream_quality != VideoQuality.DOLBY
+                    and video_stream_quality != VideoQuality.HDR
+                    and video_stream_quality.value < video_min_quality.value
+                ):
+                    continue
+                if (
+                    video_stream_quality != VideoQuality.DOLBY
+                    and video_stream_quality != VideoQuality.HDR
+                    and (not video_stream_quality in video_accepted_qualities)
+                ):
+                    continue
+                video_stream_codecs = None
+                for val in VideoCodecs:
+                    if val.value in video_data["codecs"]:
+                        video_stream_codecs = val
+                if (not video_stream_codecs in codecs) and (
+                    video_stream_codecs != None
+                ):
+                    continue
+                video_stream = VideoStreamDownloadURL(
+                    url=video_stream_url,
+                    video_quality=video_stream_quality,
+                    video_codecs=video_stream_codecs,  # type: ignore
+                )
+                streams.append(video_stream)
+            for audio_data in audios_data:
+                audio_stream_url = audio_data["baseUrl"]
+                audio_stream_quality = AudioQuality(audio_data["id"])
+                if audio_stream_quality.value > audio_max_quality.value:
+                    continue
+                if audio_stream_quality.value < audio_min_quality.value:
+                    continue
+                if not audio_stream_quality in audio_accepted_qualities:
+                    continue
+                audio_stream = AudioStreamDownloadURL(
+                    url=audio_stream_url, audio_quality=audio_stream_quality
+                )
+                streams.append(audio_stream)
+            if flac_data and (not no_hires):
+                if flac_data["audio"]:
+                    flac_stream_url = flac_data["audio"]["baseUrl"]
+                    flac_stream_quality = AudioQuality(flac_data["audio"]["id"])
+                    flac_stream = AudioStreamDownloadURL(
+                        url=flac_stream_url, audio_quality=flac_stream_quality
+                    )
+                    streams.append(flac_stream)
+            if dolby_data and (not no_dolby_audio):
+                if dolby_data["audio"]:
+                    dolby_stream_url = dolby_data["audio"]["baseUrl"]
+                    dolby_stream_quality = AudioQuality(dolby_data["audio"]["id"])
+                    dolby_stream = AudioStreamDownloadURL(
+                        url=dolby_stream_url, audio_quality=dolby_stream_quality
+                    )
+                    streams.append(dolby_stream)
+            return streams
+
+    def detect_best_streams(
+        self,
+        video_max_quality: VideoQuality = VideoQuality._8K,
+        audio_max_quality: AudioQuality = AudioQuality._192K,
+        video_min_quality: VideoQuality = VideoQuality._360P,
+        audio_min_quality: AudioQuality = AudioQuality._64K,
+        video_accepted_qualities: List[VideoQuality] = [
+            item
+            for _, item in VideoQuality.__dict__.items()
+            if isinstance(item, VideoQuality)
+        ],
+        audio_accepted_qualities: List[AudioQuality] = [
+            item
+            for _, item in AudioQuality.__dict__.items()
+            if isinstance(item, AudioQuality)
+        ],
+        codecs: List[VideoCodecs] = [VideoCodecs.AV1, VideoCodecs.AVC, VideoCodecs.HEV],
+        no_dolby_video: bool = False,
+        no_dolby_audio: bool = False,
+        no_hdr: bool = False,
+        no_hires: bool = False,
+    ) -> Union[
+        List[FLVStreamDownloadURL],
+        List[HTML5MP4DownloadURL],
+        List[EpisodeTryMP4DownloadURL],
+        List[Union[VideoStreamDownloadURL, AudioStreamDownloadURL, None]],
+    ]:
+        """
+        提取出分辨率、音质等信息最好的音视频流。
+
+        Args:
+            **以下参数仅能在音视频流分离的情况下产生作用，flv / mp4 试看流 / html5 mp4 流下以下参数均没有作用**
+
+            video_max_quality       (VideoQuality)                : 设置提取的视频流清晰度最大值，设置此参数绝对不会禁止 HDR/杜比. Defaults to VideoQuality._8K.
+            audio_max_quality       (AudioQuality)                : 设置提取的音频流清晰度最大值. 设置此参数绝对不会禁止 Hi-Res/杜比. Defaults to AudioQuality._192K.
+            video_min_quality       (VideoQuality, optional)      : 设置提取的视频流清晰度最小值，设置此参数绝对不会禁止 HDR/杜比. Defaults to VideoQuality._360P.
+            audio_min_quality       (AudioQuality, optional)      : 设置提取的音频流清晰度最小值. 设置此参数绝对不会禁止 Hi-Res/杜比. Defaults to AudioQuality._64K.
+            video_accepted_qualities(List[VideoQuality], optional): 设置允许的所有视频流清晰度. Defaults to ALL.
+            audio_accepted_qualities(List[AudioQuality], optional): 设置允许的所有音频清晰度. Defaults to ALL.
+            codecs                  (List[VideoCodecs])           : 设置所有允许提取出来的视频编码. 在数组中越靠前的编码选择优先级越高. 此项不会忽略 HDR/杜比. Defaults to [VideoCodecs.AV1, VideoCodecs.AVC, VideoCodecs.HEV].
+            no_dolby_video          (bool)                        : 是否禁止提取杜比视界视频流. Defaults to False.
+            no_dolby_audio          (bool)                        : 是否禁止提取杜比全景声音频流. Defaults to False.
+            no_hdr                  (bool)                        : 是否禁止提取 HDR 视频流. Defaults to False.
+            no_hires                (bool)                        : 是否禁止提取 Hi-Res 音频流. Defaults to False.
+
+        Returns:
+            List[VideoStreamDownloadURL | AudioStreamDownloadURL | FLVStreamDownloadURL | HTML5MP4DownloadURL | None]: FLV 视频流 / HTML5 MP4 视频流 / 番剧或课程试看 MP4 视频流返回 `[FLVStreamDownloadURL | HTML5MP4StreamDownloadURL | EpisodeTryMP4DownloadURL]`, 否则为 `[VideoStreamDownloadURL, AudioStreamDownloadURL]`, 如果未匹配上任何合适的流则对应的位置位 `None`
+        """
+        if self.check_flv_stream():
+            return self.detect_all()  # type: ignore
+        elif self.check_html5_mp4_stream():
+            return self.detect_all()  # type: ignore
+        elif self.check_episode_try_mp4_stream():
+            return self.detect_all()  # type: ignore
+        else:
+            data = self.detect(
+                video_max_quality=video_max_quality,
+                audio_max_quality=audio_max_quality,
+                video_min_quality=video_min_quality,
+                audio_min_quality=audio_min_quality,
+                video_accepted_qualities=video_accepted_qualities,
+                audio_accepted_qualities=audio_accepted_qualities,
+                codecs=codecs,
+            )
+            video_streams = []
+            audio_streams = []
+            for stream in data:
+                if isinstance(stream, VideoStreamDownloadURL):
+                    video_streams.append(stream)
+                if isinstance(stream, AudioStreamDownloadURL):
+                    audio_streams.append(stream)
+
+            def video_stream_cmp(
+                s1: VideoStreamDownloadURL, s2: VideoStreamDownloadURL
+            ):
+                # 杜比/HDR 优先
+                if s1.video_quality == VideoQuality.DOLBY and (not no_dolby_video):
+                    return 1
+                elif s2.video_quality == VideoQuality.DOLBY and (not no_dolby_video):
+                    return -1
+                elif s1.video_quality == VideoQuality.HDR and (not no_hdr):
+                    return 1
+                elif s2.video_quality == VideoQuality.HDR and (not no_hdr):
+                    return -1
+                if s1.video_quality.value != s2.video_quality.value:
+                    return s1.video_quality.value - s2.video_quality.value
+                    # Detect the high quality stream to the end.
+                elif s1.video_codecs.value != s2.video_codecs.value:
+                    return codecs.index(s2.video_codecs) - codecs.index(s1.video_codecs)
+                return -1
+
+            def audio_stream_cmp(
+                s1: AudioStreamDownloadURL, s2: AudioStreamDownloadURL
+            ):
+                # 杜比/Hi-Res 优先
+                if s1.audio_quality == AudioQuality.DOLBY and (not no_dolby_audio):
+                    return 1
+                if s2.audio_quality == AudioQuality.DOLBY and (not no_dolby_audio):
+                    return -1
+                if s1.audio_quality == AudioQuality.HI_RES and (not no_hires):
+                    return 1
+                if s2.audio_quality == AudioQuality.HI_RES and (not no_hires):
+                    return -1
+                return s1.audio_quality.value - s2.audio_quality.value
+
+            video_streams.sort(key=cmp_to_key(video_stream_cmp), reverse=True)
+            audio_streams.sort(key=cmp_to_key(audio_stream_cmp), reverse=True)
+            if len(video_streams) == 0:
+                video_streams = [None]
+            if len(audio_streams) == 0:
+                audio_streams = [None]
+            return [video_streams[0], audio_streams[0]]

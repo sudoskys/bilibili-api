@@ -16,6 +16,7 @@ from .utils.Picture import Picture
 from copy import copy, deepcopy
 from .exceptions.ResponseCodeException import ResponseCodeException
 import json
+import base64
 from enum import Enum
 
 from .exceptions.ApiException import ApiException
@@ -31,6 +32,15 @@ from .dynamic import upload_image
 # import ffmpeg
 
 _API = get_api("video_uploader")
+
+
+async def _upload_cover(cover: Picture, credential: Credential):
+    api = _API["cover_up"]
+    cover = cover.convert_format("png")
+    data = {
+        "cover": f'data:image/png;base64,{base64.b64encode(cover.content).decode("utf-8")}'
+    }
+    return await request("POST", api["url"], data=data, credential=credential)
 
 
 class VideoUploaderPage:
@@ -404,8 +414,8 @@ class VideoUploader(AsyncEvent):
                 {
                     "title": page.title,
                     "desc": page.description,
-                    "filename": data["filename"], # type: ignore
-                    "cid": data["cid"], # type: ignore
+                    "filename": data["filename"],  # type: ignore
+                    "cid": data["cid"],  # type: ignore
                 }
             )
 
@@ -419,7 +429,7 @@ class VideoUploader(AsyncEvent):
         self.dispatch(VideoUploaderEvents.COMPLETED.value, result)
         return result
 
-    async def start(self) -> dict: # type: ignore
+    async def start(self) -> dict:  # type: ignore
         """
         开始上传
 
@@ -450,9 +460,13 @@ class VideoUploader(AsyncEvent):
         """
         self.dispatch(VideoUploaderEvents.PRE_COVER.value, None)
         try:
-            pic = self.cover_path if isinstance(self.cover_path, Picture) else Picture().from_file(self.cover_path)
-            resp = await upload_image(pic, self.credential)
-            self.dispatch(VideoUploaderEvents.AFTER_COVER.value, {"url": resp["image_url"]})
+            pic = (
+                self.cover_path
+                if isinstance(self.cover_path, Picture)
+                else Picture().from_file(self.cover_path)
+            )
+            resp = await _upload_cover(pic, self.credential)
+            self.dispatch(VideoUploaderEvents.AFTER_COVER.value, {"url": resp["url"]})
             return resp["image_url"]
         except Exception as e:
             self.dispatch(VideoUploaderEvents.COVER_FAILED.value, {"err": e})
@@ -596,7 +610,7 @@ class VideoUploader(AsyncEvent):
         try:
             resp = await session.put(
                 url,
-                data=chunk, # type: ignore
+                data=chunk,  # type: ignore
                 params=params,
                 headers={"x-upos-auth": preupload["auth"]},
             )
@@ -665,7 +679,7 @@ class VideoUploader(AsyncEvent):
 
         resp = await session.post(
             url=url,
-            data=json.dumps(data), # type: ignore
+            data=json.dumps(data),  # type: ignore
             headers={
                 "x-upos-auth": preupload["auth"],
                 "content-type": "application/json; charset=UTF-8",
@@ -760,6 +774,7 @@ async def get_missions(tid: int = 0, credential: Union[Credential, None] = None)
 
     return await request("GET", api["url"], params=params, credential=credential)
 
+
 class VideoEditorEvents(Enum):
     """
     视频稿件编辑事件枚举
@@ -777,6 +792,7 @@ class VideoEditorEvents(Enum):
     + ABOTRED       : 停止
     + FAILED        : 失败
     """
+
     PRELOAD = "PRELOAD"
     AFTER_PRELOAD = "AFTER_PRELOAD"
     PRELOAD_FAILED = "PRELOAD_FAILED"
@@ -793,6 +809,7 @@ class VideoEditorEvents(Enum):
     ABORTED = "ABORTED"
     FAILED = "FAILED"
 
+
 class VideoEditor(AsyncEvent):
     """
     视频稿件编辑
@@ -800,16 +817,23 @@ class VideoEditor(AsyncEvent):
     Attributes:
         bvid (str)             : 稿件 BVID
         meta (dict)            : 视频信息
-        cover_path (str)       : 封面路径. Defaults to None(不更换封面). 
-        credential (Credential): 凭据类. Defaults to None. 
+        cover_path (str)       : 封面路径. Defaults to None(不更换封面).
+        credential (Credential): 凭据类. Defaults to None.
     """
-    def __init__(self, bvid: str, meta: dict, cover: Union[str, Picture] = "", credential: Union[Credential, None] = None):
+
+    def __init__(
+        self,
+        bvid: str,
+        meta: dict,
+        cover: Union[str, Picture] = "",
+        credential: Union[Credential, None] = None,
+    ):
         """
         Args:
             bvid (str)                    : 稿件 BVID
             meta (dict)                   : 视频信息
-            cover (str | Picture)         : 封面地址. Defaults to None(不更改封面). 
-            credential (Credential | None): 凭据类. Defaults to None. 
+            cover (str | Picture)         : 封面地址. Defaults to None(不更改封面).
+            credential (Credential | None): 凭据类. Defaults to None.
 
         meta 参数示例: (保留 video, cover, tid, aid 字段)
 
@@ -851,14 +875,16 @@ class VideoEditor(AsyncEvent):
         self.dispatch(VideoEditorEvents.PRELOAD.value)
         try:
             api = _API["upload_args"]
-            params = {
-                "bvid": self.bvid
-            }
-            self.__old_configs = await request("GET", api["url"], params = params, credential = self.credential)
+            params = {"bvid": self.bvid}
+            self.__old_configs = await request(
+                "GET", api["url"], params=params, credential=self.credential
+            )
         except Exception as e:
             self.dispatch(VideoEditorEvents.PRELOAD_FAILED.value, {"err", e})
             raise e
-        self.dispatch(VideoEditorEvents.AFTER_PRELOAD.value, {"data": self.__old_configs})
+        self.dispatch(
+            VideoEditorEvents.AFTER_PRELOAD.value, {"data": self.__old_configs}
+        )
 
     async def _change_cover(self) -> None:
         """
@@ -871,9 +897,13 @@ class VideoEditor(AsyncEvent):
             return
         self.dispatch(VideoEditorEvents.PRE_COVER.value, None)
         try:
-            pic = self.cover_path if isinstance(self.cover_path, Picture) else Picture().from_file(self.cover_path)
-            resp = await upload_image(pic, self.credential)
-            self.dispatch(VideoEditorEvents.AFTER_COVER.value, {"url": resp["image_url"]})
+            pic = (
+                self.cover_path
+                if isinstance(self.cover_path, Picture)
+                else Picture().from_file(self.cover_path)
+            )
+            resp = await _upload_cover(pic, self.credential)
+            self.dispatch(VideoEditorEvents.AFTER_COVER.value, {"url": resp["url"]})
             self.meta["cover"] = resp["image_url"]
         except Exception as e:
             self.dispatch(VideoEditorEvents.COVER_FAILED.value, {"err": e})
@@ -886,17 +916,17 @@ class VideoEditor(AsyncEvent):
         self.dispatch(VideoEditorEvents.PRE_SUBMIT.value)
         try:
             resp = await request(
-                "POST", 
-                api["url"], 
-                params = {"csrf": self.credential.bili_jct, "t": int(time.time())}, 
-                data = json.dumps(datas), 
-                headers = {
-                    "content-type": "application/json;charset=UTF-8", 
+                "POST",
+                api["url"],
+                params={"csrf": self.credential.bili_jct, "t": int(time.time())},
+                data=json.dumps(datas),
+                headers={
+                    "content-type": "application/json;charset=UTF-8",
                     "referer": "https://member.bilibili.com",
-                    "user-agent": "Mozilla/5.0"
-                }, 
-                credential = self.credential, 
-                no_csrf = True
+                    "user-agent": "Mozilla/5.0",
+                },
+                credential=self.credential,
+                no_csrf=True,
             )
             self.dispatch(VideoEditorEvents.AFTER_SUBMIT.value, resp)
         except Exception as e:
@@ -908,7 +938,9 @@ class VideoEditor(AsyncEvent):
         self.meta["videos"] = []
         cnt = 0
         for v in self.__old_configs["videos"]:
-            self.meta["videos"].append({"title": v["title"], "desc": v["desc"], "filename": v["filename"]})
+            self.meta["videos"].append(
+                {"title": v["title"], "desc": v["desc"], "filename": v["filename"]}
+            )
             self.meta["videos"][-1]["cid"] = await Video(self.bvid).get_cid(cnt)
             cnt += 1
         self.meta["cover"] = self.__old_configs["archive"]["cover"]
@@ -918,7 +950,7 @@ class VideoEditor(AsyncEvent):
         self.dispatch(VideoEditorEvents.COMPLETED.value)
         return {"bvid": self.bvid}
 
-    async def start(self) -> dict: # type: ignore
+    async def start(self) -> dict:  # type: ignore
         """
         开始更改
 

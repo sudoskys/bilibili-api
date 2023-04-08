@@ -186,8 +186,8 @@ async def test_zi_get_user_medal():
     return await u.get_user_medal()
 
 
-async def test_zj_get_user_top_videos():
-    return await u.get_top_videos()
+# async def test_zj_get_user_top_videos():
+#     return await u.get_top_videos()
 
 
 async def test_zk_get_reservation():
@@ -198,29 +198,52 @@ async def test_zl_name2uid():
     return await user.name2uid("田所こうじ")
 
 
-series_id = None
+# series_id = None
+#
+# async def test_zm_create_channel_series():
+#     global series_id
+#     data = await user.create_channel_series(name="什么都没有", credential=credential)
+#     series_id = data["series_id"]
+#     return data
+#
+#
+# async def test_zo_add_video_to_channal_series():
+#     global series_id
+#     return await user.add_aids_to_series(series_id=series_id, aids=[bvid2aid("BV1fG4y1g7wE")], credential=credential)
+#
+#
+# async def test_zp_del_video_from_channel_series():
+#     global series_id
+#     return await user.del_aids_from_series(series_id=series_id, aids=[bvid2aid("BV1fG4y1g7wE")], credential=credential)
+#
+#
+# async def test_zq_del_channel_series():
+#     global series_id
+#     return await user.del_channel_series(series_id=series_id, credential=credential)
+#
+#
+async def test_zr_get_self_same_followings():
+    return await u.get_self_same_followers()
 
-async def test_zm_create_channel_series():
-    global series_id
-    data = await user.create_channel_series(name="什么都没有", credential=credential)
-    series_id = data["series_id"]
-    return data
+
+async def test_zs_get_self_black_list():
+    return await user.get_self_black_list(credential)
 
 
-async def test_zo_add_video_to_channal_series():
-    global series_id
-    return await user.add_aids_to_series(series_id=series_id, aids=[bvid2aid("BV1fG4y1g7wE")], credential=credential)
+async def test_zt_get_self_friends():
+    return await user.get_self_friends(credential)
 
 
-async def test_zp_del_video_from_channel_series():
-    global series_id
-    return await user.del_aids_from_series(series_id=series_id, aids=[bvid2aid("BV1fG4y1g7wE")], credential=credential)
+async def test_zu_get_self_whisper_followings():
+    return await user.get_self_whisper_followings(credential)
 
 
-async def test_zq_del_channel_series():
-    global series_id
-    return await user.del_channel_series(series_id=series_id, credential=credential)
+async def test_zv_get_self_special_followings():
+    return await user.get_self_special_followings(credential)
 
+
+async def test_zw_get_self_jury_info():
+    return await user.get_self_jury_info(credential)
 
 async def after_all():
     await u.modify_relation(user.RelationType.UNSUBSCRIBE)

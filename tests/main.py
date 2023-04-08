@@ -19,6 +19,7 @@ Environment:
 """
 import asyncio
 from colorama import Fore, init, Style
+from bilibili_api import settings
 import os
 import sys
 import getopt
@@ -39,6 +40,8 @@ def collect_test_function(module):
 RATELIMIT = (
     float(os.getenv("BILI_RATELIMIT")) if os.getenv("BILI_RATELIMIT") is not None else 0
 )
+
+settings.timeout = 100
 
 
 async def test(module):
@@ -62,14 +65,25 @@ async def test(module):
     for func_name in funcs:
         print(f"{Fore.YELLOW}测试：{Fore.RESET}{func_name}   ", end="")
         func = eval("module." + func_name)
+        start_time = time.time()
         try:
             res = await func()
-            print(Fore.GREEN + "[PASSED]")
+            print(
+                Fore.GREEN
+                + "[PASSED]"
+                + Fore.YELLOW
+                + f" in {str(datetime.timedelta(seconds=time.time() - start_time))}s"
+            )
             if res is not None:
                 print(Fore.MAGENTA + str(res)[:100])
             result["passed"] += 1
         except Exception as e:
-            print(Fore.RED + "[FAILED]")
+            print(
+                Fore.RED
+                + "[FAILED]"
+                + Fore.YELLOW
+                + f" in {str(datetime.timedelta(seconds=time.time() - start_time))}s"
+            )
             print(Fore.BLUE)
             print(str(e))
             print(traceback.format_exc())

@@ -108,11 +108,6 @@ async def test_l_Video_has_favoured():
     return data
 
 
-async def test_m_Video_get_media_list():
-    data = await video.get_media_list()
-    return data
-
-
 async def test_n_Video_get_danmaku_view():
     data = await video.get_danmaku_view(0)
     return data
@@ -203,10 +198,10 @@ async def test_y_Video_del_tag():
             return e.raw
 
 
-async def test_z_Video_subscribe_and_unsubscribe_tag():
-    data = await video.subscribe_tag(8583026)
-    await video.unsubscribe_tag(8583026)
-    return data
+# async def test_z_Video_subscribe_and_unsubscribe_tag():
+#     data = await video.subscribe_tag(8583026)
+#     await video.unsubscribe_tag(8583026)
+#     return data
 
 
 async def test_za_Video_set_favorite():
@@ -237,3 +232,11 @@ async def test_zf_get_subtitle():
 #
 # res = sync(test_zf_get_subtitle())
 # print(res)
+
+
+async def test_zg_triple():
+    return await video.triple()
+
+
+async def test_zh_get_cid_info():
+    return await video_m.get_cid_info(62131)

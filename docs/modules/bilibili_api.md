@@ -110,7 +110,7 @@ import bilibili_api
 ---
 
 **@dataclasses.dataclass**
-## class Picture
+## class Picture()
 
 图片类，包含图片链接、尺寸以及下载操作。
 
@@ -122,7 +122,7 @@ Args:
     width     (int)  : 宽度           
     content   (bytes): 图片内容   
 
-可以不实例化，用 `from_url` 或 `from_file` 加载。
+可以不实例化，用 `from_url` 或 `from_file` 或 `from_content` 加载。
 
 ### Functions
 
@@ -145,6 +145,14 @@ Args:
 | path | str  | 图片地址。   |
 
 加载本地图片。
+
+**@staticmethod**
+#### def from_content
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| content | bytes | 图片内容 |
+| format | str | 图片后缀名，如 `webp`, `jpg`, `ico` |
 
 **Returns:** Picture: 加载后的图片对象。
 
@@ -169,6 +177,26 @@ Args:
 **Returns:** Picture: `self`
 
 #### async def download()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| path | str  | 下载地址。    |
+
+下载图片至本地。
+
+**Returns:** Picture: `self`
+
+#### def upload_file_sync()
+
+| name | type | description |
+| ---- | ---- | ----------- |
+| credential | Credential | 凭据类。 |
+
+上传图片至 B 站。
+
+**Returns:** Picture: `self`
+
+#### def download_sync()
 
 | name | type | description |
 | ---- | ---- | ----------- |
@@ -221,6 +249,7 @@ BV 号转 AV 号。
 | name | type | description |
 | - | - | - |
 | short_url | str | 短链接 |
+| credential | Optional[Credential] | 凭据类. |
 
 获取短链接对应的真实链接。
 
@@ -260,22 +289,6 @@ BV 号转 AV 号。
 但是 `parse_link` 可以自动读取 `bvid` 或 `aid` 并生成对应的对象。
 
 **注意：** `parse_link` 会读取可跳转链接的目标链接！
-
-目前 `parse_link` 函数支持解析：
-
-- 视频
-- 番剧
-- 番剧剧集
-- 收藏夹
-- 课程视频
-- 音频
-- 歌单
-- 专栏
-- 用户
-- 直播间
-- 合集与列表
-- 游戏
-- 话题
 
 **Returns:** `Tuple[obj, ResourceType]`: 第一项为返回对象，第二项为对象类型。
 
@@ -352,13 +365,11 @@ BV 号转 AV 号。
 | pool      | int, optional        | 暂不清楚。Defaults to -1.                                   |
 | attr      | int, optional        | 暂不清楚。 Defaults to -1.                                  |
 
-#### def set_crc32_id()
+#### def crack_uid()
 
-| name      | type               | description                                                 |
-| - | - | - |
-| crc32_id | str | crc32_id |
+暴力破解 UID，可能存在误差，请慎重使用。
 
-设置 crc32_id 同时破解 uid
+**Returns:** int: 真实 UID。
 
 #### def to_xml()
 
@@ -391,38 +402,6 @@ BV 号转 AV 号。
 | id_str | str | 弹幕字符串 ID |
 | mode | DmMode \| int | 弹幕模式 |
 | pool | int | 池 |
-
----
-
-## class GetItemObjectType
-
-**Extends: enum.Enum**
-
-资源类型。(仅供 get_item 使用)
-+ VIDEO : 视频
-+ BANGUMI : 番剧
-+ FT : 影视
-+ LIVE : 直播
-+ ARTICLE : 专栏
-+ USER : 用户
-+ LIVEUSER : 直播间用户
-+ GAME: 游戏
-
-## async def get_item()
-
-通过名称及类型获取对应资源。
-
-支持：视频，番剧，影视，直播间，专栏，用户，直播用户，游戏
-
-如：名称是"碧诗", 类型是用户, 就能得到 User(uid = 2)
-
-| name | type | description |
-| - | - | - |
-| name | str |             名称 |
-| obj_type | GetItemObjectType | 资源类型 |
-| credential | Credential     | 凭据 |
-
-**Returns:** 对应资源或 -1 (无匹配资源)
 
 ---
 

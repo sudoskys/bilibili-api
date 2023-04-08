@@ -13,8 +13,9 @@ dist/
 *.ivi
 # Videos
 *.mp4
-# Test files
+# Test files / Scratch files
 test*.*
+scratch/
 # Tests
 !tests/*.py
 # Virtual environments
@@ -22,3 +23,4 @@ venv/
 virtualenv/
 # IDE
 .idea/
+.vscode/settings.json

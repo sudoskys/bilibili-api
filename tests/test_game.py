@@ -29,3 +29,7 @@ async def test_d_Game_get_wiki():
 
 async def test_e_Game_get_videos():
     return await g.get_videos()
+
+
+async def test_f_Game_get_score():
+    return await g.get_score()
